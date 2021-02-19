@@ -1,0 +1,1 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[17],{89:function(t){t.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Run ebpf with tc","permalink":"/blog/run-ebpf-with-tc"}]}')}}]);

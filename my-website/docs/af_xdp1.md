@@ -32,27 +32,28 @@ UMEM有两个ring，**FILL RING** 和 **COMPLETION RING**。
 XDP程序和用户态应用程序通过共同操作这4个 ring 来实现报文的收发。
 
 > 注意：AF_XDP socket不再通过 send()/recv()等函数实现报文收发，而实通过直接操作ring来实现报文收发。
-
- 1. FILL RING
-
-==fill_ring 的生产者是用户态程序，消费者是内核态中的XDP程序； #F44336==
-
-用户态程序通过 fill_ring 将可以用来承载报文的 UMEM frames 传到内核，然后内核消耗 fill_ring 中的元素（后文统一称为 desc），并将报文拷贝到desc中指定地址（该地址即UMEM frame的地址）；
- 2. COMPLETION RING
-
-==completion_ring 的生产者是XDP程序，消费者是用户态程序； #F44336==
-
-当内核完成XDP报文的发送，会通过 completion_ring 来通知用户态程序，哪些报文已经成功发送，然后用户态程序消耗 completion_ring 中 desc(只是更新consumer计数相当于确认)；
- 3. RX RING
-
-==rx_ring的生产者是XDP程序，消费者是用户态程序； #F44336==
-
-XDP程序消耗 fill_ring，获取可以承载报文的 desc并将报文拷贝到desc中指定的地址，然后将desc填充到 rx_ring 中，并通过socket IO机制通知用户态程序从 rx_ring 中接收报文；
- 4. TX RING
-
-==tx_ring的生产者是用户态程序，消费者是XDP程序； #F44336==
-
-用户态程序将要发送的报文拷贝 tx_ring 中 desc指定的地址中，然后 XDP程序 消耗 tx_ring 中的desc，将报文发送出去，并通过 completion_ring 将成功发送的报文的desc告诉用户态程序；
+> 
+>  1. FILL RING
+> 
+> **fill_ring 的生产者是用户态程序，消费者是内核态中的XDP程序；**
+> 
+> 用户态程序通过 fill_ring 将可以用来承载报文的 UMEM frames 传到内核，然后内核消耗 fill_ring 中的元素（后文统一称为 desc），并将报文拷贝到desc中指定地址（该地址即UMEM frame的地址）；
+> 
+>  2. COMPLETION RING
+> 
+> **completion_ring 的生产者是XDP程序，消费者是用户态程序；**
+> 
+> 当内核完成XDP报文的发送，会通过 completion_ring 来通知用户态程序，哪些报文已经成功发送，然后用户态程序消耗 completion_ring 中 desc(只是更新consumer计数相当于确认)；
+>  3. RX RING
+> 
+> **rx_ring的生产者是XDP程序，消费者是用户态程序；**
+> 
+> XDP程序消耗 fill_ring，获取可以承载报文的 desc并将报文拷贝到desc中指定的地址，然后将desc填充到 rx_ring 中，并通过socket IO机制通知用户态程序从 rx_ring 中接收报文；
+>  4. TX RING
+> 
+> **tx_ring的生产者是用户态程序，消费者是XDP程序；**
+> 
+> 用户态程序将要发送的报文拷贝 tx_ring 中 desc指定的地址中，然后 XDP程序 消耗 tx_ring 中的desc，将报文发送出去，并通过 completion_ring 将成功发送的报文的desc告诉用户态程序；
 
 #### 1.2.2 为UMEM申请内存
 

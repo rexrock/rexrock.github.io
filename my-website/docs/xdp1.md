@@ -1,6 +1,6 @@
 ---
 id: xdp1
-title: XDP详解
+title: XDP技术简介
 ---
 
 ## 1. XDP程序的运行位置
@@ -85,6 +85,6 @@ xdp_abort:
 ```
 
 **疑问？**
-如果我们相对报文执行 redirect，那么我们在BPF程序中需要执行 bpf_redirect() / bpf_redirect_map()，但是从上卖弄的代码中看，从我们的BPF程序返回后，驱动程序也调用了一个叫做 xdp_do_redirect() 的函数。那么问题来了，报文的 redirect 到底是在什么时候执行的呢？答案后面揭晓。
+如果我们相对报文执行 redirect，那么我们在BPF程序中需要执行 bpf_redirect() / bpf_redirect_map()，但是从上面的代码中看，从我们的BPF程序返回后，驱动程序也调用了一个叫做 xdp_do_redirect() 的函数。那么问题来了，报文的 redirect 到底是在什么时候执行的呢？答案后面揭晓。
 
 

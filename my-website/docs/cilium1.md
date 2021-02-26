@@ -14,6 +14,8 @@ title: Cilium datapath梳理
 * 内核层面基于sock的流量劫持，主要用于lb（k8s-proxy）;
 * 基于端口流量劫持，实现整个datapath的替换；
 
+**置于cilium_host和cilium_net:**
+
 ![cilium host](./images/1614297440408.png)
 
 ### 1.2 Cilium中ebpf map的构成

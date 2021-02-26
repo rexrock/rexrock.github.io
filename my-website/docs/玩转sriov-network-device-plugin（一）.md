@@ -74,8 +74,7 @@ spec:
 ~~~
 
 **注意：**
-
-    并不是所有的pod创建都会自动添加副接口，我们需要通过annotations指定，我们想要给pod添加“哪些”副接口。pod成功Running后，我们查看pod里面的网卡配置，可以看到名为net1的我们创建的macvlan接口：
+并不是所有的pod创建都会自动添加副接口，我们需要通过annotations指定，我们想要给pod添加“哪些”副接口。pod成功Running后，我们查看pod里面的网卡配置，可以看到名为net1的我们创建的macvlan接口：
 
 ![enter description here](./images/1614305778007.png)
 

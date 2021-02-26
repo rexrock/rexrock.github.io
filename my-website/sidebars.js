@@ -2,21 +2,16 @@ module.exports = {
   docs: [
     {
       type: 'category',
-      label: 'Ebpf',
+      label: 'eBPF',
       items: [
-	'ebpf1', 'xdp1', 'af_xdp1',
+	'ebpf1', 'ebpf2', 'xdp1', 'af_xdp1',
       ]
     },
     {
       type: 'category',
       label: 'Cilium',
       items: [
-	'k8s-net2',
-        {
-          type: 'category',
-          label: '进阶',
-          items: ['cilium1'],
-        },
+	'k8s-net2', 'cilium1',
       ]
     },
     {
@@ -31,7 +26,7 @@ module.exports = {
         {
           type: 'category',
           label: '网络',
-          items: ['k8s-net1', 'k8s-net2'],
+          items: ['k8s-net1', 'k8s-net2', 'k8s-sriov1'],
         },
       ]
     },

@@ -1,6 +1,6 @@
 module.exports = {
-  title: 'My Site',
-  tagline: 'The tagline of my site',
+  title: '向云原生进击',
+  tagline: '每天进步一点点',
   url: 'https://rexrock.github.io',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -10,10 +10,10 @@ module.exports = {
   projectName: 'rexrock.github.io', // Usually your repo name.
   themeConfig: {
     navbar: {
-      title: 'My Site',
+      title: '阳仔的博客',
       logo: {
         alt: 'My Site Logo',
-        src: 'img/logo.svg',
+        src: 'img/author.jpg ',
       },
       items: [
         {

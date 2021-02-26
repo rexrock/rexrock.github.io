@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0">
     <channel>
-        <title>My Site Blog</title>
+        <title>向云原生进击 Blog</title>
         <link>https://rexrock.github.io/blog</link>
-        <description>My Site Blog</description>
+        <description>向云原生进击 Blog</description>
         <lastBuildDate>Fri, 19 Feb 2021 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
@@ -12,7 +12,7 @@
             <link>https://rexrock.github.io/blog/run-ebpf-with-tc</link>
             <guid>run-ebpf-with-tc</guid>
             <pubDate>Fri, 19 Feb 2021 00:00:00 GMT</pubDate>
-            <description><![CDATA[1\. TC的几个概念]]></description>
+            <description><![CDATA[Run ebpf with tc]]></description>
         </item>
     </channel>
 </rss>

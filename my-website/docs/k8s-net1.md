@@ -3,7 +3,7 @@ id: k8s-net1
 title: Flannel和Calico简介
 ---
 
-# 1\. Flannel
+## 1. Flannel
 
 Flannel是CoreOS维护的一个网络组件，Flannel为每个Pod提供全局唯一的IP，Flannel使用ETCD来存储Pod子网与Node IP之间的关系。flanneld守护进程在每台主机上运行，并负责维护ETCD信息和路由数据包。
 
@@ -11,7 +11,7 @@ Flannel是CoreOS维护的一个网络组件，Flannel为每个Pod提供全局唯
 https://github.com/coreos/flannel
 ```
 
-## 1.1 Flannel部署
+### 1.1 Flannel部署
 
 ```
 wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
@@ -30,7 +30,7 @@ FLANNEL_MTU=1450
 FLANNEL_IPMASQ=true
 ```
 
-## 1.2 hos-gw工作模式
+### 1.2 hos-gw工作模式
 
 如何配置工作模式，上面已有介绍。这里主要看下flannel的host-gw模式时如何工作的
 
@@ -56,7 +56,7 @@ flannel的host-gw模式，就是将每个节点都当成一个网关，部署中
 > 
 > 1\. Node需要二层互通，否则下一条转发不出去（以我们的云主机为例，云主机之间转发靠流表，因此在云主机上搭建的k8s集群，如果采用flannel的host-gw模式，跨节点访问不通的）。
 
-## 1.3 vxlan模式
+### 1.3 vxlan模式
 
 vxlan模式的转发路径如下图所示，flannel.1即linux的vxlan port：
 
@@ -73,9 +73,9 @@ vxlan的原理这里不做展开，关于linux vxlan的配置及工作原理可�
 
 可以看到每个节点被当成一个网关，只不过底层传输走了vxlan。
 
-# 2\. Calico
+## 2. Calico
 
-## 2.1 Calico部署
+### 2.1 Calico部署
 
 **部署前确保宿主机的iptables为legacy模式：**
 
@@ -103,7 +103,7 @@ update-alternatives --set ebtables /usr/sbin/ebtables-legacy
  - **IP Tunnel:** CALICO\_IPV4POOL\_IPIP="Always" 且 CALICO\_IPV4POOL\_VXLAN=”Never“
  - **VXLAN**: CALICO\_IPV4POOL\_IPIP="Never" 且 CALICO\_IPV4POOL\_VXLAN=”Always“
 
-## 2.2 BGP模式
+### 2.2 BGP模式
 
 ![enter description here](./images/1614303997323.png)
 
@@ -127,7 +127,7 @@ update-alternatives --set ebtables /usr/sbin/ebtables-legacy
 
 ![enter description here](./images/1614304108422.png)
 
-## 2.3 IP Tunnel模式
+### 2.3 IP Tunnel模式
 
 ![enter description here](./images/1614304129190.png)
 
@@ -135,7 +135,7 @@ IP Tunnel方案相比BGP方案相比，唯一的区别时跨节点通信由原�
 
 ![enter description here](./images/1614304149124.png)
 
-## 2.4 Vxlan模式
+### 2.4 Vxlan模式
 
 ![enter description here](./images/1614304168262.png)
 

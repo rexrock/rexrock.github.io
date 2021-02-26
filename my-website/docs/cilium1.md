@@ -56,14 +56,14 @@ runDaemon() =>NewDaemon() =>Daemon.initMaps()
 * LIB=/var/lib/cilium/bpf，bpf源码所在目录
 * RUNDIR=/var/run/cilium/state，工作目录
 * IP4\_HOST=10.17.0.7，cilium\_host的ipv4地址
-* IP6\_HOST=<nil>，
+* IP6\_HOST=nil
 * MODE=vxlan，网络模式
 * **NATIVE\_DEVS**\=eth0，出口网卡，可以手动指定，没指定的话就看默认路由走那个口
-* XDP\_DEV=<nil>
-* XDP\_MODE=<nil>
+* XDP\_DEV=nil
+* XDP\_MODE=nil
 * MTU=1500
 * IPSEC=false
-* ENCRYPT\_DEV=<nil>
+* ENCRYPT\_DEV=nil
 * HOSTLB=true
 * HOSTLB\_UDP=true
 * HOSTLB\_PEER=false
@@ -73,7 +73,7 @@ runDaemon() =>NewDaemon() =>Daemon.initMaps()
 * NODE\_PORT\_BIND=true
 * MCPU=v2
 * NODE\_PORT\_IPV4\_ADDRS=eth0=0xc64a8c0
-* NODE\_PORT\_IPV6\_ADDRS=<nil>
+* NODE\_PORT\_IPV6\_ADDRS=nil
 * NR\_CPUS=64
 
 #### 2.2.2 具体工作

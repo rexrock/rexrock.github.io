@@ -7,31 +7,16 @@ AF_XDP是一个协议族（例如AF_NET），主要用于高性能报文处理�
 
 前文[XDP技术简介](xdp1.md)中提到过，通过XDP_REDIRECT我们可以将报文重定向到其他设备发送出去或者重定向到其他的CPU继续进行处理。而AF_XDP则利用 bpf_redirect_map()函数，实现将报文重定向到用户态一块指定的内存中，接下来我们看一下这到底是如何做到的。
 
-## 1. 用户态程序
+我们使用普通的 socket() 系统调用创建一个AF_XDP套接字（XSK）。每个XSK都有两个ring：RX RING 和 TX RING。套接字可以在 RX RING 上接收数据包，并且可以在 TX RING 环上发送数据包。这些环分别通过 setockopts() 的 XDP_RX_RING 和 XDP_TX_RING 进行注册和调整大小。每个 socket 必须至少有一个这样的环。RX或TX描述符环指向存储区域（称为UMEM）中的数据缓冲区。RX和TX可以共享同一UMEM，因此不必在RX和TX之间复制数据包。
 
-### 1.1 创建AF_XDP的socket
+UMEM也有两个 ring：FILL RING 和 COMPLETION RING。应用程序使用 FILL RING 向内核发送可以承载报文的 addr (该 addr 指向UMEM中某个chunk)，以供内核填充RX数据包数据。每当收到数据包，对这些 chunks 的引用就会出现在RX环中。另一方面，COMPLETION RING包含内核已完全传输的 chunks 地址，可以由用户空间再次用于 TX 或 RX。
 
-``` 创建AF_XDP的socket
-xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
-```
-这一步没什么好展开的。
-
-### 1.2 申请UMEM
-
-#### 1.2.1 UMEM简介
-
-UMEM就是上面提到的，用户态应用程序指定的一块用于存放报文数据的共享内存。UMEM 包含一系列固定大小的chunks，然后XDP程序以及用户态程序都通过 ring 来操作 UMEM。
+![enter description here](./images/1614584458041.png)
 
 > 关于ring，熟悉dpdk的同学应该都不陌生，这里只做简单介绍。ring就是一个固定长度的数组，并且同时拥有一个生产者和一个消费者，生产者向数组中逐个填写数据，消费者从数组中逐个读取生产者填充的数据，生产者和消费者都用数组的下标表示，不断累加，像一个环一样不断重复生产然后消费的动作，因此得名ring。
 > ![enter description here](./images/1614166502357.png)
 
-UMEM有两个ring，**FILL RING** 和 **COMPLETION RING**。
-
-每个AF_XDP socket也有两个ring，**RX RING** 和 **TX RING**。
-
-XDP程序和用户态应用程序通过共同操作这4个 ring 来实现报文的收发。
-
-> 注意：AF_XDP socket不再通过 send()/recv()等函数实现报文收发，而实通过直接操作ring来实现报文收发。
+> 此外需要注意的事，AF_XDP socket不再通过 send()/recv()等函数实现报文收发，而实通过直接操作ring来实现报文收发。
 > 
 >  1. FILL RING
 > 
@@ -55,7 +40,16 @@ XDP程序和用户态应用程序通过共同操作这4个 ring 来实现报文�
 > 
 > 用户态程序将要发送的报文拷贝 tx_ring 中 desc指定的地址中，然后 XDP程序 消耗 tx_ring 中的desc，将报文发送出去，并通过 completion_ring 将成功发送的报文的desc告诉用户态程序；
 
-#### 1.2.2 为UMEM申请内存
+## 1. 用户态程序
+
+### 1.1 创建AF_XDP的socket
+
+``` 创建AF_XDP的socket
+xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
+```
+这一步没什么好展开的。
+
+### 1.2 申请UMEM
 
 上文提到UMEM是一块包含固定大小chunk的内存，我们可以通过malloc/mmap/hugepages申请。下文大部分代码出自kernel samples。 
 ``` samples/bpf/xdpsock_user.c:main()

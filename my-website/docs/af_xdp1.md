@@ -49,7 +49,7 @@ xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
 ```
 这一步没什么好展开的。
 
-### 1.2 申请UMEM
+### 1.2 为UMEM申请内存
 
 上文提到UMEM是一块包含固定大小chunk的内存，我们可以通过malloc/mmap/hugepages申请。下文大部分代码出自kernel samples。 
 ``` samples/bpf/xdpsock_user.c:main()

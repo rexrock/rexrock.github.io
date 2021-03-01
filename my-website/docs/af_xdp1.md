@@ -29,11 +29,13 @@ UMEM也有两个 ring：FILL RING 和 COMPLETION RING。应用程序使用 FILL 
 > **completion_ring 的生产者是XDP程序，消费者是用户态程序；**
 > 
 > 当内核完成XDP报文的发送，会通过 completion_ring 来通知用户态程序，哪些报文已经成功发送，然后用户态程序消耗 completion_ring 中 desc(只是更新consumer计数相当于确认)；
+> 
 >  3. RX RING
 > 
 > **rx_ring的生产者是XDP程序，消费者是用户态程序；**
 > 
 > XDP程序消耗 fill_ring，获取可以承载报文的 desc并将报文拷贝到desc中指定的地址，然后将desc填充到 rx_ring 中，并通过socket IO机制通知用户态程序从 rx_ring 中接收报文；
+> 
 >  4. TX RING
 > 
 > **tx_ring的生产者是用户态程序，消费者是XDP程序；**

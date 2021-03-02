@@ -238,5 +238,3 @@ BPF_CALL_3(bpf_xdp_redirect_map, struct bpf_map *, map, u32, ifindex,
         return XDP_REDIRECT;
 }
 ```
-
-

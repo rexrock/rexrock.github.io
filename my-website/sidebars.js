@@ -4,7 +4,7 @@ module.exports = {
       type: 'category',
       label: 'eBPF',
       items: [
-	'ebpf1', 'ebpf2', 'xdp1', 'af_xdp1',
+	'ebpf1', 'ebpf2', 'xdp1', 'af_xdp1', 'af_xdp2'
       ]
     },
     {

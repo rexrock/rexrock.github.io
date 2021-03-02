@@ -48,5 +48,26 @@ bpf_redirect() 和 bpf_redirect_map() 应该只是填充bpf_redirect_info结构�
 <script src="/935f2afb.2c835209.js"></script>
 <script src="/34.9183888f.js"></script>
 <script src="/adf24e77.6e3048cd.js"></script>
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: 'd106c72d0e9b203f55d777b8cf6085fc1aad57d0',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
 </body>
 </html>

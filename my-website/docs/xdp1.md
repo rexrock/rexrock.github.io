@@ -207,4 +207,36 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
 }
 ```
 
+分析的没错，bpf_redirect_map()函数定义如下：
+
+``` javascript
+// >> net/core/filter.c
+BPF_CALL_3(bpf_xdp_redirect_map, struct bpf_map *, map, u32, ifindex,
+           u64, flags)
+{
+        struct bpf_redirect_info *ri = this_cpu_ptr(&bpf_redirect_info);
+
+        /* Lower bits of the flags are used as return code on lookup failure */
+        if (unlikely(flags > XDP_TX))
+                return XDP_ABORTED;
+
+        ri->tgt_value = __xdp_map_lookup_elem(map, ifindex);
+        if (unlikely(!ri->tgt_value)) {
+                /* If the lookup fails we want to clear out the state in the
+                 * redirect_info struct completely, so that if an eBPF program
+                 * performs multiple lookups, the last one always takes
+                 * precedence.
+                 */
+                WRITE_ONCE(ri->map, NULL);
+                return flags;
+        }
+
+        ri->flags = flags;
+        ri->tgt_index = ifindex;
+        WRITE_ONCE(ri->map, map);
+
+        return XDP_REDIRECT;
+}
+```
+
 

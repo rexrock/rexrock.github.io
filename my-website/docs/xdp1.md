@@ -87,4 +87,124 @@ xdp_abort:
 **疑问？**
 如果我们相对报文执行 redirect，那么我们在BPF程序中需要执行 bpf_redirect() / bpf_redirect_map()，但是从上面的代码中看，从我们的BPF程序返回后，驱动程序也调用了一个叫做 xdp_do_redirect() 的函数。那么问题来了，报文的 redirect 到底是在什么时候执行的呢？答案后面揭晓。
 
+**接着分析：**
+
+``` drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c:mlx5e_xdp_handle
+        case XDP_REDIRECT:
+                /* When XDP enabled then page-refcnt==1 here */
+                err = xdp_do_redirect(rq->netdev, &xdp, prog);
+                if (unlikely(err))
+                        goto xdp_abort;
+                __set_bit(MLX5E_RQ_FLAG_XDP_XMIT, rq->flags);
+                __set_bit(MLX5E_RQ_FLAG_XDP_REDIRECT, rq->flags);
+                if (!xsk)
+                        mlx5e_page_dma_unmap(rq, di);
+                rq->stats->xdp_redirect++;
+                return true;
+```
+XDP程序返回后，驱动会根据XDP程序的返回码去真正执行 action。我们以 XDP_REDIRECT 为例，继续跟踪 xdp_do_redirect() 函数：
+``` javascript
+// >> net/core/filter.c
+xdp_do_redirect(netdev, xdp_buff, xdp_prog) =>
+xdp_do_redirect_map(netdev, xdp_buff, xdp_prog, bpf_map, bpf_redirect_info) =>
+__bpf_tx_xdp_map(netdev, fwd, bpf_map, xdp_buff, index) =>
+// fwd即xdp_sock；
+
+// >> kernel/bpf/xskmap.c
+__xsk_map_redirect(bpf_map, xdp_buff, xdp_sock) =>
+
+// >> net/xdp/xsk.c
+xsk_rcv(xdp_sock, xdp_buff)
+__xsk_rcv(xdp_sock, xdp_buff, len)
+```
+
+我们主要看下 xsk_rck() 和 __xsk_rcv() 两个函数：
+``` xl
+int xsk_rcv(struct xdp_sock *xs, struct xdp_buff *xdp)
+{
+        u32 len;
+
+        if (!xsk_is_bound(xs))
+                return -EINVAL;
+        // AF_XDP技术详解中曾介绍过，AF_XDP socket是跟具体的网卡RX队列绑定的，这里再真正执行
+		// 收包前做了依次判断(虽然XDP程序中也有判断，但毕竟不是强制的)
+        if (xs->dev != xdp->rxq->dev || xs->queue_id != xdp->rxq->queue_index)
+                return -EINVAL;
+
+        len = xdp->data_end - xdp->data;
+
+        return (xdp->rxq->mem.type == MEM_TYPE_ZERO_COPY) ?
+                __xsk_rcv_zc(xs, xdp, len) : __xsk_rcv(xs, xdp, len);
+}
+```
+
+``` javascript
+static int __xsk_rcv(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
+{
+        u64 offset = xs->umem->headroom;
+        u64 addr, memcpy_addr;
+        void *from_buf;
+        u32 metalen;
+        int err;
+
+        // 从 FILL RING中获取可以承载报文数据的desc
+        if (!xskq_peek_addr(xs->umem->fq, &addr, xs->umem) ||
+            len > xs->umem->chunk_size_nohr - XDP_PACKET_HEADROOM) {
+                xs->rx_dropped++;
+                return -ENOSPC;
+        }
+
+        if (unlikely(xdp_data_meta_unsupported(xdp))) {
+                from_buf = xdp->data;
+                metalen = 0;
+        } else {
+                from_buf = xdp->data_meta;
+                metalen = xdp->data - xdp->data_meta;
+        }
+        // 执行报文数据的copy，该函数时非zero copy模式下的执行函数
+        memcpy_addr = xsk_umem_adjust_offset(xs->umem, addr, offset);
+        __xsk_rcv_memcpy(xs->umem, memcpy_addr, from_buf, len, metalen);
+
+        offset += metalen;
+        addr = xsk_umem_adjust_offset(xs->umem, addr, offset);
+		// 插入到 RX RING中
+        err = xskq_produce_batch_desc(xs->rx, addr, len);
+        if (!err) {
+                xskq_discard_addr(xs->umem->fq);
+                xdp_return_buff(xdp);
+                return 0;
+        }
+
+        xs->rx_dropped++;
+        return err;
+}
+```
+
+**结论：**
+bpf_redirect() 和 bpf_redirect_map() 应该只是填充bpf_redirect_info结构（即redirect的target相关的数据），真正的redirect操作仍由驱动在 XDP程序返回后执行。
+
+``` javascript
+// >> include/linux/filter.h
+struct bpf_redirect_info {
+        u32 flags;
+        u32 tgt_index;
+        void *tgt_value;
+        struct bpf_map *map;
+        struct bpf_map *map_to_flush;
+        u32 kern_flags;
+};
+// >> net/core/filter.c:
+int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+                    struct bpf_prog *xdp_prog)
+{
+        struct bpf_redirect_info *ri = this_cpu_ptr(&bpf_redirect_info);
+        struct bpf_map *map = READ_ONCE(ri->map);
+
+        if (likely(map))
+                return xdp_do_redirect_map(dev, xdp, xdp_prog, map, ri);
+
+        return xdp_do_redirect_slow(dev, xdp, xdp_prog, ri);
+}
+```
+
 

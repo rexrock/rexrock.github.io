@@ -1,0 +1,26 @@
+{
+  "config": {
+    "branch": "gridea",
+    "domain": "https://rexrock.github.io",
+    "email": "liyang_12921@163.com",
+    "platform": "github",
+    "repository": "rexrock.github.io",
+    "token": "",
+    "username": "rexrock"
+  },
+  "comment": {
+    "commentPlatform": "gitalk",
+    "disqusSetting": {
+      "api": "",
+      "apikey": "",
+      "shortname": ""
+    },
+    "gitalkSetting": {
+      "clientId": "62131da8c01581d51a4c",
+      "clientSecret": "c0eae2fa8258b5dca764bea13eeda27c905af837",
+      "owner": "rexrock",
+      "repository": "rexrock.github.io"
+    },
+    "showComment": true
+  }
+}

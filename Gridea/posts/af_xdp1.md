@@ -51,7 +51,7 @@ UMEM也有两个 ring：FILL RING 和 COMPLETION RING。应用程序使用 FILL 
 
 ### 1.1 创建AF_XDP的socket
 
-``` 创建AF_XDP的socket
+```
 xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
 ```
 这一步没什么好展开的。
@@ -59,7 +59,7 @@ xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
 ### 1.2 为UMEM申请内存
 
 上文提到UMEM是一块包含固定大小chunk的内存，我们可以通过malloc/mmap/hugepages申请。下文大部分代码出自kernel samples。 
-``` samples/bpf/xdpsock_user.c:main()
+```
     bufs = mmap(NULL, NUM_FRAMES * opt_xsk_frame_size,
                          PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS | opt_mmap_flags, -1, 0);
@@ -71,7 +71,7 @@ xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
 
 ### 1.3 向AF_XDP socket注册UMEM
 
-``` tools/lib/bpf/xsk.c:xsk_umem__create_v0_0_4()
+```
         struct xdp_umem_reg mr;
         memset(&mr, 0, sizeof(mr));
         mr.addr = (uintptr_t)umem_area; // umem_area即上面通过mmap申请到内存起始地址
@@ -88,7 +88,7 @@ xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
 ```
 其中xdp_umem_reg结构定义在 usr/include/linux/if_xdp.h中：
 
-``` xdp_umem_reg
+```
 struct xdp_umem_reg {
         __u64 addr; /* Start of packet data area */
         __u64 len; /* Length of packet data area */
@@ -109,7 +109,7 @@ struct xdp_umem_reg {
 我们通过 setsockopt() 设置 FILL/COMPLETION/RX/TX ring的大小（在我看来这个过程相当于创建，不设置大小的ring是没有办法使用的）。
 
 FILL RING 和 COMPLETION RING是UMEM必须，RX和TX则是 AF_XDP socket二选一的，例如AF_XDP socket只收包那么只需要设置RX RING的大小即可。
-``` tools/lib/bpf/xsk.c:xsk_umem__create_v0_0_4()
+```
         err = setsockopt(umem->fd, SOL_XDP, XDP_UMEM_FILL_RING,
                          &umem->config.fill_size,
                          sizeof(umem->config.fill_size));
@@ -134,7 +134,7 @@ FILL RING 和 COMPLETION RING是UMEM必须，RX和TX则是 AF_XDP socket二选�
 ### 1.5 将FILL RING 映射到用户态
 
 第一步是获取内核中ring结构各成员的偏移，因为从5.4版本开始后，ring结构中除了 producer、consumer、desc外，又新增了一个flag成员。所以用户态程序需要先获取 ring 结构中各成员的准确便宜，才能在mmap() 之后准确识别内存中各成员位置。 
-``` tools/lib/bpf/xsk.c:xsk_umem__create_v0_0_4()
+```
         err = xsk_get_mmap_offsets(umem->fd, &off);
         if (err) {
                 err = -errno;
@@ -142,13 +142,13 @@ FILL RING 和 COMPLETION RING是UMEM必须，RX和TX则是 AF_XDP socket二选�
         }
 ```
 xsk_get_mmap_offsets() 函数主要是通过getsockopt函数实现这一功能：
-``` tools/lib/bpf/xsk.c
+```
         err = getsockopt(fd, SOL_XDP, XDP_MMAP_OFFSETS, off, &optlen);
         if (err)
                 return err;
 ```
 一切就绪，开始将内核中的 FILL RING 映射到用户态程序中：
-``` tools/lib/bpf/xsk.c:xsk_umem__create_v0_0_4()
+```
         map = mmap(NULL, off.fr.desc + umem->config.fill_size * sizeof(__u64),
                    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, umem->fd,
                    XDP_UMEM_PGOFF_FILL_RING);
@@ -167,7 +167,7 @@ xsk_get_mmap_offsets() 函数主要是通过getsockopt函数实现这一功能�
         fill->cached_cons = umem->config.fill_size;
 ```
 上面代码需要关注的一点是 mmap() 函数中指定内存的长度——**off.fr.desc + umem->config.fill_size * sizeof(\_\_u64)**，umem->config.fill_size * sizeof(\_\_u64)没什么好说的，就是ring数组的长度，而 off.fr.desc 则是ring结构体的长度，我们先看下内核中ring结构的定义：
-``` usr/include/linux/if_xdp.h
+```
 struct xdp_ring_offset {
         __u64 producer;
         __u64 consumer;
@@ -183,7 +183,7 @@ struct xdp_ring_offset {
 ### 1.6 将COMPLETION RING 映射到用户态
 跟上面 FILL RING 的映射一样，只贴代码好了：
 
-``` tools/lib/bpf/xsk.c:xsk_umem__create_v0_0_4()
+```
         map = mmap(NULL, off.cr.desc + umem->config.comp_size * sizeof(__u64),
                    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, umem->fd,
                    XDP_UMEM_PGOFF_COMPLETION_RING);
@@ -205,7 +205,7 @@ struct xdp_ring_offset {
 
 这里和 FILL RING 以及 COMPLETION RING的做法基本完全一致，只贴代码：
 
-``` tools/lib/bpf/xsk.c:xsk_socket__create()
+```
         if (rx) {
                 err = setsockopt(xsk->fd, SOL_XDP, XDP_RX_RING,
                                  &xsk->config.rx_size,
@@ -273,7 +273,7 @@ struct xdp_ring_offset {
 
 ### 1.8 调用bind()将AF_XDP socket绑定的指定设备的某一队列
 
-``` bind() for AF_XDP socket
+```
         sxdp.sxdp_family = PF_XDP;
         sxdp.sxdp_ifindex = xsk->ifindex;
         sxdp.sxdp_queue_id = xsk->queue_id;
@@ -295,7 +295,7 @@ struct xdp_ring_offset {
 ### 2.1 创建BPF_MAP_TYPE_XSKMAP类型的map
 该类型map的key是网口设备的queue_id，value则是该queue上绑定的AF_XDP socket fd，所以通常需要为每个网口设备各自创建独立的map，并在用户态将对应的queue_id->xsk_fd存储到map中。
 
-``` create map
+```
 static int xsk_create_bpf_maps(struct xsk_socket *xsk)
 {
         int max_queues;
@@ -325,7 +325,7 @@ bpf_create_map_name参数详解：
 
 ### 2.2 XDP程序代码
 
-``` XDP PROG
+```
         /* This is the C-program:
          * SEC("xdp_sock") int xdp_sock_prog(struct xdp_md *ctx)
          * {
@@ -344,7 +344,7 @@ bpf_create_map_name参数详解：
 
 ### 2.3 XDP程序的加载
 
-``` XDP PROG 
+```
 static int xsk_load_xdp_prog(struct xsk_socket *xsk)
 {
         static const int log_buf_size = 16 * 1024;
@@ -423,7 +423,7 @@ XDP程序加载成功会返回对应的fd（后面统称为prog_fd），但是�
 
 前面介绍XSKMAP的时候，大家应该都想到这一步了，所以只贴代码不说话：
 
-``` Update XSKMAP
+```
 static int xsk_set_bpf_maps(struct xsk_socket *xsk)
 {
         return bpf_map_update_elem(xsk->xsks_map_fd, &xsk->queue_id,
@@ -439,7 +439,7 @@ static int xsk_set_bpf_maps(struct xsk_socket *xsk)
 ![收包](https://rexrock.github.io/post-images/1614242674670.png)
 收包过程是由XDP程序触发的，但是XDP程序收包，需要依赖用户态程序填充FILL RING，将可以承载报文的desc告诉XDP程序。所以在用户态程序初始化阶段，我们需要先填充FILL RING，直接看代码：
 
-``` INIT FILL RING
+```
         ret = xsk_ring_prod__reserve(&xsk->umem->fq,
                                      XSK_RING_PROD__DEFAULT_NUM_DESCS,
                                      &idx);
@@ -455,7 +455,7 @@ static int xsk_set_bpf_maps(struct xsk_socket *xsk)
 
 **1. xsk_ring_prod__reserve**
 
-``` rust
+```
 static inline size_t xsk_ring_prod__reserve(struct xsk_ring_prod *prod,
                                             size_t nb, __u32 *idx)
 {
@@ -480,7 +480,7 @@ static inline size_t xsk_ring_prod__reserve(struct xsk_ring_prod *prod,
 
 **2. xsk_ring_prod__fill_addr**
 
-``` rust
+```
 static inline __u64 *xsk_ring_prod__fill_addr(struct xsk_ring_prod *fill,
                                               __u32 idx)
 {
@@ -491,7 +491,7 @@ static inline __u64 *xsk_ring_prod__fill_addr(struct xsk_ring_prod *fill,
 ```
 看这段代码前，我们先看下ring中元素xdp_desc的成员结构：
 
-``` rust
+```
 struct xdp_desc {
         __u64 addr;
         __u32 len;
@@ -505,7 +505,7 @@ struct xdp_desc {
 
 所以上面xsk_ring_prod__fill_addr的功能就好理解了，返回的ring中下标为idx处的desc中addr的指针；并且在函数返回后对addr进行了赋值，再看下这块代码，可以看到赋值给addr是个偏移量：
 
-``` rust
+```
         for (i = 0; i < XSK_RING_PROD__DEFAULT_NUM_DESCS; i++)
                 *xsk_ring_prod__fill_addr(&xsk->umem->fq, idx++) =
                         i * opt_xsk_frame_size;
@@ -513,7 +513,7 @@ struct xdp_desc {
 
   3. xsk_ring_prod__submit
 
-``` rust
+```
 static inline void xsk_ring_prod__submit(struct xsk_ring_prod *prod, size_t nb)
 {
         /* Make sure everything has been written to the ring before indicating
@@ -542,7 +542,7 @@ AF_XDP socket毕竟也是socket，所以select/poll/epoll这些函数都能用�
 
 我们只看具体从一个AF_XDP socket收包的过程:
 
-``` receive packets
+```
 static void rx_drop(struct xsk_socket_info *xsk, struct pollfd *fds)
 {
         unsigned int rcvd, i;
@@ -595,7 +595,7 @@ static void rx_drop(struct xsk_socket_info *xsk, struct pollfd *fds)
 **3. 报文处理**
 
 处理从RX RING中收到的报文，并回填到FILL RING中；
-``` handle packets
+```
         for (i = 0; i < rcvd; i++) {
                 u64 addr = xsk_ring_cons__rx_desc(&xsk->rx, idx_rx)->addr;
                 u32 len = xsk_ring_cons__rx_desc(&xsk->rx, idx_rx++)->len;
@@ -609,7 +609,7 @@ static void rx_drop(struct xsk_socket_info *xsk, struct pollfd *fds)
         }
 ```
 从desc中读取addr，并通过 xsk_umem__get_data() 函数得到报文真正的虚拟地址，然后 hex_dump()下。
-``` get data address
+```
 static inline void *xsk_umem__get_data(void *umem_area, __u64 addr)
 {
         return &((char *)umem_area)[addr];
@@ -617,7 +617,7 @@ static inline void *xsk_umem__get_data(void *umem_area, __u64 addr)
 ```
 然后将处理完报文所在的 UMEM 帧回填到FILL RING中：
 
-``` rust
+```
 *xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_fq++) = orig;
 ```
 **4. xsk_ring_prod__submit(&xsk->umem->fq, rcvd)**
@@ -632,7 +632,7 @@ static inline void *xsk_umem__get_data(void *umem_area, __u64 addr)
 关于AF_XDP的使用及背后原理暂且分析到这，目前AF_XDP已经在ovs、dpdk、cilium中应用，相应的文档下面有链接。如有错误纰漏，欢迎大家拍砖。
 
 **相关代码均出自kernel：**
-``` crystal
+```
 samples/bpf/xdpsock_user.c
 tools/lib/bpf/xsk.c
 tools/lib/bpf/xsk.h

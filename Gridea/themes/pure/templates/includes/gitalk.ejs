@@ -30,6 +30,7 @@
   var gitalk = new Gitalk({
     clientID: '<%= commentSetting.gitalkSetting.clientId %>',
     clientSecret: '<%= commentSetting.gitalkSetting.clientSecret %>',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
     repo: '<%= commentSetting.gitalkSetting.repository %>',
     owner: '<%= commentSetting.gitalkSetting.owner %>',
     admin: ['<%= commentSetting.gitalkSetting.owner %>'],

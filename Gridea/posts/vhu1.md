@@ -53,13 +53,36 @@ QEMU未虚拟机申请内存，并将虚拟机的整个内存注册到vhostuser�
 
 **第二步：**
 Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vring地址同步给QEMU。
-
+``` code
+// 追踪从virtio-net开始初始化到创建virtqueue，函数定义位置：linux-kernel-src/drivers/virtio/
+|virtio_pci_probe
+| |virtio_pci_legacy_probe / virtio_pci_modern_probe
+| |	|setup_vq
+| |	| |vring_create_virtqueue
+| | | | |vring_create_virtqueue_split
+| | | | | |void *queue = vring_alloc_queue // 申请vring的地址
+| | | | | |vring_init(struct vring *, queue)
+| | | | | |__vring_create_virtqueue
+| | | |iowrite32(VIRTIO_PCI_QUEUE_PFN) // 将vring_addr注册到QEMU
+```
 > 说明：Virtio-net和QEMU之间的通信不是通过什么scoket，而是由virtio-net向一段特定的io空间写数据实现的。不单单QEMU是这样做的，包括VMWARE也是这么做的（XEN不熟悉）。同理，QEMU向GUEST发起的数据请求也都是都通过IO实现的。
 
 **第三步：**
 QEMU在enable每个virtqueu的时候，会将virtqueue中三个vring的长度及地址注册到vhostuser。并且初始化三个vring中消费者/生产者的位置。
 
+``` code
+// vhostuser中相关协商处理函数
+static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
+	......
+	[VHOST_USER_SET_VRING_NUM] = vhost_user_set_vring_num,
+	[VHOST_USER_SET_VRING_ADDR] = vhost_user_set_vring_addr,
+	[VHOST_USER_SET_VRING_BASE] = vhost_user_set_vring_base,
+	......
+};
+```
+
 ## Guest向外发包
+
 ## Guest从外面收包
 ## Virtio的前后端通知机制
 

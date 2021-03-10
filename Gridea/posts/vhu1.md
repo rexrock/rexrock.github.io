@@ -54,7 +54,7 @@ QEMU未虚拟机申请内存，并将虚拟机的整个内存注册到vhostuser�
 **第二步：**
 Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vring地址同步给QEMU。
 ``` code
-// 追踪从virtio-net开始初始化到创建virtqueue，函数定义位置：linux-kernel-src/drivers/virtio/
+// 追踪从virtio-net开始初始化到创建virtqueue，函数位置：linux-kernel-src/drivers/virtio/
 |virtio_pci_probe
 | |virtio_pci_legacy_probe / virtio_pci_modern_probe
 | |	|setup_vq
@@ -82,6 +82,14 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 ```
 
 ## Guest向外发包
+
+``` code
+// 函数位置：linux-kernel-src/drivers/net/virtio-net.c
+|start_xmit
+| |free_old_xmit_skbs
+| |xmit_skb
+| | |virtqueue_add_outbuf
+```
 
 ## Guest从外面收包
 ## Virtio的前后端通知机制

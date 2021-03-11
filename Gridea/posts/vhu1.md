@@ -115,17 +115,17 @@ static inline int virtqueue_add(struct virtqueue *_vq,
  - sgs，元素为scatterlist的列表；这里需要额外注意，每个scatterlist本身也是一个列表；举个例子，一个skb可以由多个分片构成，多个分片内存上是不连续的，在没有scatter-gather之前或者禁用scatter-gather的情况下，驱动需要将所有分片拷贝到一块连续的内存上，而开启scatter-gather后，我们不必再重新拷贝报文分片，直接通过scattherlist将报文的多个分片串联起来，供网卡驱动使用。可以说scatterlist是skb在网卡驱动中的表示；
  - total_sg，所有scatterlist中分片加起来的总数，每个分片都占用一个独立的desc，所以total_sg表明接下来要消耗的desc总数；
  - out_sgs，sgs中有多少是out_sg；
-==说明： #F44336==scatterlist是分为out_sg（只读）和in_sg（可读可写）两种类型的。当Guest发送报文的时候，使用out_sg，当Guest打算收包，需要先将可承载报文数据的内存通过desc ring传递到vhost的时候，就使用in_sg。此外需要注意，我们发包的时候，只会传递out_sg给virtqueue_add()，收包的时候只传递in_sg给virtqueue_add()，还有一种通过virtqueue进行前后端协商和管理的virtqueue，会同时传递out_sg和in_sg给virtqueue_add（）。
+【说明】：scatterlist是分为out_sg（只读）和in_sg（可读可写）两种类型的。当Guest发送报文的时候，使用out_sg，当Guest打算收包，需要先将可承载报文数据的内存通过desc ring传递到vhost的时候，就使用in_sg。此外需要注意，我们发包的时候，只会传递out_sg给virtqueue_add()，收包的时候只传递in_sg给virtqueue_add()，还有一种通过virtqueue进行前后端协商和管理的virtqueue，会同时传递out_sg和in_sg给virtqueue_add（）。
  - int_sgs，sgs中有多少是in_sg；
  - data，要传输的内存起始地址；
-==说明： #F44336==在发包场景中，就是要发送的skb的地址，注意是虚拟地址，而我们赋值给desc->addr是物理地址，那么这个data有啥用呢？用处就是这个报文被vhost成功处理发送后，virtio-net会通过used ring再次获取到已经被成功发送的报文，这个时候virtio-net需要释放报文，那么直接引用这个data指向的虚拟地址释放就可以了。
-==说明: #F44336==在收包场景中类似，virtio-net填充预申请的空白内存给vhostuser收包，收到的报文会通过used ring再送回到virtio-net中，这个时候直接引用data即可对内存中的报文数据进行操作了。
-==说明： #F44336==那么data存储再哪呢？下面代码解析里有介绍。
+【说明】：在发包场景中，就是要发送的skb的地址，注意是虚拟地址，而我们赋值给desc->addr是物理地址，那么这个data有啥用呢？用处就是这个报文被vhost成功处理发送后，virtio-net会通过used ring再次获取到已经被成功发送的报文，这个时候virtio-net需要释放报文，那么直接引用这个data指向的虚拟地址释放就可以了。
+【说明】：在收包场景中类似，virtio-net填充预申请的空白内存给vhostuser收包，收到的报文会通过used ring再送回到virtio-net中，这个时候直接引用data即可对内存中的报文数据进行操作了。
+【说明】：那么data存储再哪呢？下面代码解析里有介绍。
  - ctx，跟indirect相关，暂时不管；
  - gfp，跟indirect相关，暂时不管；
 
 **virtqueue_add_split函数源码分析：**
-==说明： #F44336==packed queus是virtio 1.1引入的新特性，我们暂时不管，先分析老的split模式。
+说明：packed queus是virtio 1.1引入的新特性，我们暂时不管，先分析老的split模式。
 ```
 
 static inline int virtqueue_add_split(struct virtqueue *_vq,

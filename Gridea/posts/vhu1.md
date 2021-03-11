@@ -89,6 +89,47 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 | |free_old_xmit_skbs
 | |xmit_skb
 | | |virtqueue_add_outbuf
+| | | |virtqueue_add
+| | | | |virtqueue_add_split
+```
+这里面virtqueue_add()是一个通用的函数，不管收包还是发包，都是通过调用virtqueue_add()函数实现：
+
+``` code
+static inline int virtqueue_add(struct virtqueue *_vq,
+                                struct scatterlist *sgs[],
+                                unsigned int total_sg,
+                                unsigned int out_sgs,
+                                unsigned int in_sgs,
+                                void *data,
+                                void *ctx,
+                                gfp_t gfp)；
+```
+**参数解析：**
+
+ - _vq，没什么好解释的，virtqueue被包含在vring_virtqueue中，几乎跟vring传输相关的所有内容都定义在vring_virtqueue中；
+ - sgs，元素为scatterlist的列表；这里需要额外注意，每个scatterlist本身也是一个列表；举个例子，一个skb可以由多个分片构成，多个分片内存上是不连续的，在没有scatter-gather之前或者禁用scatter-gather的情况下，驱动需要将所有分片拷贝到一块连续的内存上，而开启scatter-gather后，我们不必再重新拷贝报文分片，直接通过scattherlist将报文的多个分片串联起来，供网卡驱动使用。可以说scatterlist是skb在网卡驱动中的表示；
+ - total_sg，所有scatterlist中分片加起来的总数，每个分片都占用一个独立的desc，所以total_sg表明接下来要消耗的desc总数；
+ - out_sgs，sgs中有多少是out_sg；
+==说明： #F44336==scatterlist是分为out_sg（只读）和in_sg（可读可写）两种类型的。当Guest发送报文的时候，使用out_sg，当Guest打算收包，需要先将可承载报文数据的内存通过desc ring传递到vhost的时候，就使用in_sg。此外需要注意，我们发包的时候，只会传递out_sg给virtqueue_add()，收包的时候只传递in_sg给virtqueue_add()，还有一种通过virtqueue进行前后端协商和管理的virtqueue，会同时传递out_sg和in_sg给virtqueue_add（）。
+ - int_sgs，sgs中有多少是in_sg；
+ - data，首片内存地址；
+ - ctx，跟indirect相关，暂时不管；
+ - gfp，跟indirect相关，暂时不管；
+
+**virtqueue_add_split函数源码分析：**
+
+``` code
+
+static inline int virtqueue_add_split(struct virtqueue *_vq,
+                                      struct scatterlist *sgs[],
+                                      unsigned int total_sg,
+                                      unsigned int out_sgs,
+                                      unsigned int in_sgs,
+                                      void *data,
+                                      void *ctx,
+                                      gfp_t gfp)
+{
+
 ```
 
 ## Guest从外面收包

@@ -23,6 +23,7 @@ struct vring {
         struct vring_used *used;
 };
 ```
+
 可见，ving不是一个ring环，而是包含了三个ring环，利用着三个ring环实现报文的收发。我们通过一张图来描述三个ring环的作用及关系：
 ![enter description here](https://rexrock.github.io/post-images/1615334196092.png)
 
@@ -58,6 +59,7 @@ QEMU未虚拟机申请内存，并将虚拟机的整个内存注册到vhostuser�
 
 **第二步：**
 Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vring地址同步给QEMU。
+
 ```
 // 追踪从virtio-net开始初始化到创建virtqueue，函数位置：linux-kernel-src/drivers/virtio/
 |virtio_pci_probe
@@ -70,6 +72,7 @@ Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vr
 | | | | | |__vring_create_virtqueue
 | | | |iowrite32(VIRTIO_PCI_QUEUE_PFN) // 将vring_addr注册到QEMU
 ```
+
 > 说明：Virtio-net和QEMU之间的通信不是通过什么scoket，而是由virtio-net向一段特定的io空间写数据实现的。不单单QEMU是这样做的，包括VMWARE也是这么做的（XEN不熟悉）。同理，QEMU向GUEST发起的数据请求也都是都通过IO实现的。
 
 **第三步：**
@@ -97,6 +100,7 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 | | | |virtqueue_add
 | | | | |virtqueue_add_split
 ```
+
 这里面virtqueue_add()是一个通用的函数，不管收包还是发包，都是通过调用virtqueue_add()函数实现：
 
 ```
@@ -109,6 +113,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
                                 void *ctx,
                                 gfp_t gfp)；
 ```
+
 **参数解析：**
 
  - _vq，没什么好解释的，virtqueue被包含在vring_virtqueue中，几乎跟vring传输相关的所有内容都定义在vring_virtqueue中；
@@ -126,8 +131,8 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 
 **virtqueue_add_split函数源码分析：**
 说明：packed queus是virtio 1.1引入的新特性，我们暂时不管，先分析老的split模式。
-```
 
+```
 static inline int virtqueue_add_split(struct virtqueue *_vq,
                                       struct scatterlist *sgs[],
                                       unsigned int total_sg,
@@ -257,6 +262,7 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 | | | | | |virtqueue_add()	
 | | | |virqueue_kick()
 ```
+
 我们从virtqueue_get_buf()函数开始看。该函数执行的是收包函数的第一步，还是以split模式为例，该函数会根据模式选择最终调用到virtqueue_get_buf_ctx_split()函数：
 
 ```

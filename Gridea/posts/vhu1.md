@@ -1,5 +1,5 @@
 ---
-title: '深入浅出vhostuser传输模'
+title: '深入浅出vhostuser传输模型'
 date: 2020-03-03 12:31:00
 tags: [eBPF,XDP]
 published: true
@@ -11,7 +11,7 @@ isTop: false
 ## 1. virtio的ring结构
 Virtio设备是支持多队列，每个队列由结构vring_virtqueue定义（可以是收包队列也可以是发包队列），而每个vring_virtqueue中都定义了一个vring结构，负责具体的数据传输。
 
-``` code
+```
 // include/uapi/linux/virtio_ring.h
 struct vring {
         unsigned int num;
@@ -58,7 +58,7 @@ QEMU未虚拟机申请内存，并将虚拟机的整个内存注册到vhostuser�
 
 **第二步：**
 Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vring地址同步给QEMU。
-``` code
+```
 // 追踪从virtio-net开始初始化到创建virtqueue，函数位置：linux-kernel-src/drivers/virtio/
 |virtio_pci_probe
 | |virtio_pci_legacy_probe / virtio_pci_modern_probe
@@ -75,7 +75,7 @@ Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vr
 **第三步：**
 QEMU在enable每个virtqueu的时候，会将virtqueue中三个vring的长度及地址注册到vhostuser。并且初始化三个vring中消费者/生产者的位置。
 
-``` code
+```
 // vhostuser中相关协商处理函数
 static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 	......
@@ -88,7 +88,7 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 
 ## 3. Guest向外发包
 
-``` code
+```
 // 函数位置：linux-kernel-src/drivers/net/virtio-net.c
 |start_xmit
 | |free_old_xmit_skbs // 每次发包前，先清理上一次已成功发送的包
@@ -99,7 +99,7 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 ```
 这里面virtqueue_add()是一个通用的函数，不管收包还是发包，都是通过调用virtqueue_add()函数实现：
 
-``` code
+```
 static inline int virtqueue_add(struct virtqueue *_vq,
                                 struct scatterlist *sgs[],
                                 unsigned int total_sg,
@@ -126,7 +126,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 
 **virtqueue_add_split函数源码分析：**
 ==说明： #F44336==packed queus是virtio 1.1引入的新特性，我们暂时不管，先分析老的split模式。
-``` code
+```
 
 static inline int virtqueue_add_split(struct virtqueue *_vq,
                                       struct scatterlist *sgs[],
@@ -245,7 +245,7 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 
 ## 4. Guest从外面收包
 
-``` code
+```
 |virtnet_poll()
 | |virtnet_receive()
 | | |virtqueue_get_buf()
@@ -259,7 +259,7 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 ```
 我们从virtqueue_get_buf()函数开始看。该函数执行的是收包函数的第一步，还是以split模式为例，该函数会根据模式选择最终调用到virtqueue_get_buf_ctx_split()函数：
 
-``` code
+```
 static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
                                          unsigned int *len,
                                          void **ctx)

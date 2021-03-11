@@ -1,6 +1,11 @@
 ---
-id: vhu1
-title: 深入浅出vhostuser传输模型
+title: '深入浅出vhostuser传输模'
+date: 2020-03-03 12:31:00
+tags: [eBPF,XDP]
+published: true
+hideInList: false
+feature:
+isTop: false
 ---
 
 ## 1. virtio的ring结构

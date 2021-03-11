@@ -117,7 +117,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
  - gfp，跟indirect相关，暂时不管；
 
 **virtqueue_add_split函数源码分析：**
-
+==说明： #F44336==packed queus是virtio 1.1引入的新特性，我们暂时不管，先分析老的split模式。
 ``` code
 
 static inline int virtqueue_add_split(struct virtqueue *_vq,
@@ -129,7 +129,107 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
                                       void *ctx,
                                       gfp_t gfp)
 {
+		......
+		} else {
+		// 非indirect模式
+                indirect = false;
+                desc = vq->split.vring.desc;
+                i = head;
+                descs_used = total_sg;
+        }
+		......
+		// 如果desc ring没有空间了，赶紧通知vhost处理报文好腾地方
+        if (vq->vq.num_free < descs_used) {
+                pr_debug("Can't add buf len %i - avail = %i\n",
+                         descs_used, vq->vq.num_free);
+                /* FIXME: for historical reasons, we force a notify here if
+                 * there are outgoing parts to the buffer.  Presumably the
+                 * host should service the ring ASAP. */
+                if (out_sgs)
+                        vq->notify(&vq->vq);
+                if (indirect)
+                        kfree(desc);
+                END_USE(vq);
+                return -ENOSPC;
+        }
+		......
+		// *************************************************************************
+		// 第一步，填充desc ring
+		// 本函数最核心的代码了，out_sg和in_sg的存放位置也是有讲究的，当同时又两种scatterlist时，
+		// out_sg总是被放在前面，in_sg被存储在out_sg后面；
+		for (n = 0; n < out_sgs; n++) {
+                for (sg = sgs[n]; sg; sg = sg_next(sg)) {
+						// 这里需要注意的是，通过desc->addr传递给vhost的是Guest的物理地址
+                        dma_addr_t addr = vring_map_one_sg(vq, sg, DMA_TO_DEVICE);
+                        if (vring_mapping_error(vq, addr))
+                                goto unmap_release;
 
+                        desc[i].flags = cpu_to_virtio16(_vq->vdev, VRING_DESC_F_NEXT);
+                        desc[i].addr = cpu_to_virtio64(_vq->vdev, addr);
+                        desc[i].len = cpu_to_virtio32(_vq->vdev, sg->length);
+                        prev = i;
+                        i = virtio16_to_cpu(_vq->vdev, desc[i].next);
+                }
+        }
+        for (; n < (out_sgs + in_sgs); n++) {
+                for (sg = sgs[n]; sg; sg = sg_next(sg)) {
+                        dma_addr_t addr = vring_map_one_sg(vq, sg, DMA_FROM_DEVICE);
+                        if (vring_mapping_error(vq, addr))
+                                goto unmap_release;
+
+                        desc[i].flags = cpu_to_virtio16(_vq->vdev, VRING_DESC_F_NEXT | VRING_DESC_F_WRITE);
+                        desc[i].addr = cpu_to_virtio64(_vq->vdev, addr);
+                        desc[i].len = cpu_to_virtio32(_vq->vdev, sg->length);
+                        prev = i;
+                        i = virtio16_to_cpu(_vq->vdev, desc[i].next);
+                }
+        }
+        /* Last one doesn't continue. */
+		// OK，对于发包场景，上面所有desc都是一个SKB的，现在这个SKB填充完毕，需要通过flag标记
+		// desc的结束，前面介绍desc ring的时候介绍过，所有desc通过next成员链在一起，并且通过flag
+		// 标记一个报文存储的结束。
+        desc[prev].flags &= cpu_to_virtio16(_vq->vdev, ~VRING_DESC_F_NEXT);
+		
+		/* We're using some buffers from the free list. */
+		// 用了多少，得从num_free中减掉
+        vq->vq.num_free -= descs_used;
+
+        /* Update free pointer */
+        if (indirect)
+				......
+        else
+				// 更新下一次开始填充的desc下标
+                vq->free_head = i;
+		......
+
+		/* Put entry in available array (but don't update avail->idx until they
+         * do sync). */
+        // *************************************************************************
+		// 第二步，填充avail ring
+		// 上面是desc ring的填充，下main开始填充avail ring了，可以看到只需要将第一个desc
+		// 填充到avail ring即可
+        avail = vq->split.avail_idx_shadow & (vq->split.vring.num - 1);
+        vq->split.vring.avail->ring[avail] = cpu_to_virtio16(_vq->vdev, head);
+		
+        /* Descriptors and available array need to be set before we expose the
+         * new available array entries. */
+        // 累加avail ring的生产者计数
+        virtio_wmb(vq->weak_barriers);
+        vq->split.avail_idx_shadow++;
+        vq->split.vring.avail->idx = cpu_to_virtio16(_vq->vdev,
+                                                vq->split.avail_idx_shadow);
+		// *************************************************************************
+		// num_added主要跟通知机制有关，下面章节详细介绍
+        vq->num_added++;
+
+        pr_debug("Added buffer head %i to %p\n", head, vq);
+        END_USE(vq);
+
+        /* This is very unlikely, but theoretically possible.  Kick
+         * just in case. */
+        if (unlikely(vq->num_added == (1 << 16) - 1))
+                virtqueue_kick(_vq);
+		......
 ```
 
 ## Guest从外面收包

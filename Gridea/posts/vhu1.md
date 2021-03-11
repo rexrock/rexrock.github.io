@@ -86,7 +86,7 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 ``` code
 // 函数位置：linux-kernel-src/drivers/net/virtio-net.c
 |start_xmit
-| |free_old_xmit_skbs
+| |free_old_xmit_skbs // 每次发包前，先清理上一次已成功发送的包
 | |xmit_skb
 | | |virtqueue_add_outbuf
 | | | |virtqueue_add
@@ -112,7 +112,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
  - out_sgs，sgs中有多少是out_sg；
 ==说明： #F44336==scatterlist是分为out_sg（只读）和in_sg（可读可写）两种类型的。当Guest发送报文的时候，使用out_sg，当Guest打算收包，需要先将可承载报文数据的内存通过desc ring传递到vhost的时候，就使用in_sg。此外需要注意，我们发包的时候，只会传递out_sg给virtqueue_add()，收包的时候只传递in_sg给virtqueue_add()，还有一种通过virtqueue进行前后端协商和管理的virtqueue，会同时传递out_sg和in_sg给virtqueue_add（）。
  - int_sgs，sgs中有多少是in_sg；
- - data，首片内存地址；
+ - data，首片内存地址；——TODO
  - ctx，跟indirect相关，暂时不管；
  - gfp，跟indirect相关，暂时不管；
 
@@ -233,6 +233,25 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 ```
 
 ## Guest从外面收包
+
+``` code
+|virtnet_poll()
+| |virtnet_receive()
+| | |virtqueue_get_buf()
+| | | |detach_buf()
+| | |receive_buf()
+| | |try_fill_recv()
+| | | |add_recebuf_xxx()
+| | | | |virtqueue_add_xxx()
+| | | | | |virtqueue_add()	
+| | | |virqueue_kick()
+```
+
+
+## Vhost从Guest收包
+
+## Vhost向Guest发包
+
 ## Virtio的前后端通知机制
 
  

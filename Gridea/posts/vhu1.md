@@ -41,7 +41,7 @@ Struct vring_avail是定义了一个ring环的（即成员ring[]），这个ring
 
 如图，三个ring是分布在一块连续的内存中的（物理/虚拟地址都是连续的）。最前面是desc ring，接下来是avail ring，最后是used ring。
 
-## 将vring映射到vhostuser
+## 2. 将vring映射到vhostuser
 Virtio队列中的vring是由Guest中的virtio-net驱动申请的，那么vhostuser如何操作这些vring呢？答案是virtio-net在申请好vring后需要将vring的地址告诉vhostuser。我们通过一张图，看一下虚拟机启动时所涉及到的内存注册过程：
 ![enter description here](./images/1615335007124.png)
 
@@ -81,7 +81,7 @@ static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
 };
 ```
 
-## Guest向外发包
+## 3. Guest向外发包
 
 ``` code
 // 函数位置：linux-kernel-src/drivers/net/virtio-net.c
@@ -238,7 +238,7 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 		......
 ```
 
-## Guest从外面收包
+## 4. Guest从外面收包
 
 ``` code
 |virtnet_poll()
@@ -332,10 +332,10 @@ static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
         return ret;
 ```
 
-## Vhost从Guest收包
+## 5. Vhost从Guest收包
 
-## Vhost向Guest发包
+## 6. Vhost向Guest发包
 
-## Virtio的前后端通知机制
+## 7. Virtio的前后端通知机制
 
  

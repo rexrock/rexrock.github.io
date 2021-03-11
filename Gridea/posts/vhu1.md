@@ -112,7 +112,10 @@ static inline int virtqueue_add(struct virtqueue *_vq,
  - out_sgs，sgs中有多少是out_sg；
 ==说明： #F44336==scatterlist是分为out_sg（只读）和in_sg（可读可写）两种类型的。当Guest发送报文的时候，使用out_sg，当Guest打算收包，需要先将可承载报文数据的内存通过desc ring传递到vhost的时候，就使用in_sg。此外需要注意，我们发包的时候，只会传递out_sg给virtqueue_add()，收包的时候只传递in_sg给virtqueue_add()，还有一种通过virtqueue进行前后端协商和管理的virtqueue，会同时传递out_sg和in_sg给virtqueue_add（）。
  - int_sgs，sgs中有多少是in_sg；
- - data，首片内存地址；——TODO
+ - data，要传输的内存起始地址；
+==说明： #F44336==在发包场景中，就是要发送的skb的地址，注意是虚拟地址，而我们赋值给desc->addr是物理地址，那么这个data有啥用呢？用处就是这个报文被vhost成功处理发送后，virtio-net会通过used ring再次获取到已经被成功发送的报文，这个时候virtio-net需要释放报文，那么直接引用这个data指向的虚拟地址释放就可以了。
+==说明: #F44336==在收包场景中类似，virtio-net填充预申请的空白内存给vhostuser收包，收到的报文会通过used ring再送回到virtio-net中，这个时候直接引用data即可对内存中的报文数据进行操作了。
+==说明： #F44336==那么data存储再哪呢？下面代码解析里有介绍。
  - ctx，跟indirect相关，暂时不管；
  - gfp，跟indirect相关，暂时不管；
 
@@ -201,7 +204,10 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 				// 更新下一次开始填充的desc下标
                 vq->free_head = i;
 		......
-
+		// vring_virtqueue又自己维护了一个跟desc ring长度相同的数组，专门用来存储对应desc中内存
+		// 对应的虚拟地址
+		vq->split.desc_state[head].data = data;
+		......
 		/* Put entry in available array (but don't update avail->idx until they
          * do sync). */
         // *************************************************************************
@@ -246,7 +252,85 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 | | | | | |virtqueue_add()	
 | | | |virqueue_kick()
 ```
+我们从virtqueue_get_buf()函数开始看。该函数执行的是收包函数的第一步，还是以split模式为例，该函数会根据模式选择最终调用到virtqueue_get_buf_ctx_split()函数：
 
+``` code
+static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
+                                         unsigned int *len,
+                                         void **ctx)
+{
+		// 注意：该函数每次只收一个包
+		......
+		// 这一步先判断下used ring里有没有未处理的成员。贴一下more_used_split（）的代码：
+		// return vq->last_used_idx != 
+		//                    virtio16_to_cpu(vq->vq.vdev, vq->split.vring.used->idx);
+		// ***************************************************************************
+		// 这里需要说明的是，vring_virtqueue中定义了一个成员叫last_used_idx，last_used_idx是
+		// virtio-net消费used ring的下标+1，也就是这一次将从last_used_idx这个位置开始消费used 
+		// ring。而vring_used中的idx则是由生产者（也就是vhost）填充的，表示下一次将要填充的used 
+		// ring的下标。
+		// ***************************************************************************
+		// 说明：Vring_avail和vring_used中的idx都是生产者填充的，而消费者都会在各自的virtqueue的
+		// 结构中定义一个last_xxx_idx，表示上次消费的截至位置，以及下一次开始消费的位置。
+        if (!more_used_split(vq)) {
+                pr_debug("No more buffers in queue\n");
+                END_USE(vq);
+                return NULL;
+        }
+		
+        /* Only get used array entries after they have been exposed by host. */
+        virtio_rmb(vq->weak_barriers);
+
+		// 获取要消费的used ring的下标
+        last_used = (vq->last_used_idx & (vq->split.vring.num - 1));
+        // 从used成员中获取指向的desc ring中的下标
+		i = virtio32_to_cpu(_vq->vdev,
+                        vq->split.vring.used->ring[last_used].id);
+		// 获取这个报文的实际长度
+		// 注意：这个报文可能是由多个desc构成的，下面的len是指所有desc中报文的总长度，并且报文的存
+		// 储总是前面desc满了之后，再向下一个desc中存储数据。
+        *len = virtio32_to_cpu(_vq->vdev,
+                        vq->split.vring.used->ring[last_used].len);
+
+		// 如果这个desc ring的下标超过数组长度，则发生错误。
+		// ***************************************************************************
+		// 特别注意：
+		// 细心的同学可能已经发现，avail ring和used ring的生产者/消费者下标是不断累加的，然后使用
+		// 的时候做一下“idx&(vring_num-1)”的操作来保证访问不越界。但是我们使用desc ring的下标并不
+		// 是不断累加的，而是每次通过desc的next成员获取到的（观察上面virtqueue_add函数得分析）。所
+		// 以我们从avail ring和used ring中获取得desc下标是直接得下标，不存在越界。
+        if (unlikely(i >= vq->split.vring.num)) {
+                BAD_RING(vq, "id %u out of range\n", i);
+                return NULL;
+        }
+		// ***************************************************************************
+		// 这个data钱买你介绍过了
+        if (unlikely(!vq->split.desc_state[i].data)) {
+                BAD_RING(vq, "id %u is not a head!\n", i);
+                return NULL;
+        }
+
+        /* detach_buf_split clears data, so grab it now. */
+        ret = vq->split.desc_state[i].data;
+		// OK，报文已成功提取，时方掉这个desc，如果占用了多个desc，会在detach_buf_split中一起
+		// 释放（通过flag标记结束）。
+        detach_buf_split(vq, i, ctx);
+		// 累加消费者下标
+        vq->last_used_idx++;
+        /* If we expect an interrupt for the next entry, tell host
+         * by writing event index and flush out the write before
+         * the read in the next get_buf call. */
+        if (!(vq->split.avail_flags_shadow & VRING_AVAIL_F_NO_INTERRUPT))
+                virtio_store_mb(vq->weak_barriers,
+                                &vring_used_event(&vq->split.vring),
+                                cpu_to_virtio16(_vq->vdev, vq->last_used_idx));
+
+        LAST_ADD_TIME_INVALID(vq);
+
+        END_USE(vq);
+		// 返回指向报文的虚拟机地址
+        return ret;
+```
 
 ## Vhost从Guest收包
 

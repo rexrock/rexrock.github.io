@@ -315,7 +315,7 @@ static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
                 return NULL;
         }
 		// ***************************************************************************
-		// 这个data钱买你介绍过了
+		// 这个data前面介绍过了
         if (unlikely(!vq->split.desc_state[i].data)) {
                 BAD_RING(vq, "id %u is not a head!\n", i);
                 return NULL;

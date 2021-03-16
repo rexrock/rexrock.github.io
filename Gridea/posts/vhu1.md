@@ -345,6 +345,185 @@ static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
 
 ## 5. Vhost从Guest收包
 
+我们选择DPDK-20.11的代码进行分析，因为这个版本vhostuser的收包代码非场简洁。在DPDK-20.08之前，vhostuser驱动支持zerocopy功能，但是在DPDK-20.08中zerocopy被移除了。因为zerocopy虽然带来了性能的提升，却让代码变得复杂且难以维护，同时zerocopy在VPC场景存在使用限制，复杂的代码也给virtio一些新功能添加也带来的阻碍，种种因素导致zerocopy最终被社区抛弃。今后virtio性能优化的方向主要时通过硬件的方式进行，例如通过CPU的CBDMA引擎加速拷贝，或者通过支持virtio offload的网卡进行卸载加速。
+
+```
+|rte_vhost_dequeue_burst()
+| |virtio_dev_tx_split()
+| | |for() // 处理所有报文（最多不超过32个，可配）
+| | | |fill_vec_buf_split()
+| | | | |while() // 处理该报文下所有的desc（通过desc.next串起的list）
+| | | | | |map_one_desc()
+| | | | | | |vhost_iova_to_vva()
+| | | | | | | |rte_vhost_va_from_guest_pa()
+| | | |copy_desc_to_mbuf()
+```
+
+继续贯彻深入浅出原则，咱们先看rte_vhost_va_from_guest_pa()函数，该函数主要实现将desc->addr这个Guest的物理地址（后面简称GPA）转换成DPDK进程中可以直接访问虚拟地址（后面简称VVA，虽然通常大家喜欢称之为HVA，但是我们跟着DPDK里面定义的VVA叫吧，大家知道怎么回事就行了）。
+
+**特别介绍：**
+在分析rte_vhost_va_from_guest_pa()函数之前，有必要先介绍一下rte_vhost_memory和rte_vhost_mem_region 这2个结构，前面第2节曾提到，VM虚拟机启动的时候的QEMU会将虚拟机整个内存都注册到vhostuser驱动中，那么虚拟机的内存信息存储在哪呢？答案就是由rte_vhost_memory结构负责存储：
+
+```
+// 每个rte_vhost_mem_region对应一个page
+struct rte_vhost_memory {
+	// region个数
+	uint32_t nregions;
+	// region数组
+	struct rte_vhost_mem_region regions[];
+};
+
+struct rte_vhost_mem_region {
+	// 就是这个region在Guest中的物理地址
+	uint64_t guest_phys_addr;
+	// 主要在QEMU把vring注册过来的时候用到，Guest中的虚拟地址？TODO
+	uint64_t guest_user_addr;
+	// region映射到DPDK进程后的虚拟地址
+	uint64_t host_user_addr;
+	// region的长度
+	uint64_t size;
+	void	 *mmap_addr;
+	uint64_t mmap_size;
+	int fd;
+};
+```
+我们再来分析rte_vhost_va_from_guest_pa()函数：
+```
+__rte_experimental
+static __rte_always_inline uint64_t
+rte_vhost_va_from_guest_pa(struct rte_vhost_memory *mem,
+						   uint64_t gpa, uint64_t *len)
+{
+	struct rte_vhost_mem_region *r;
+	uint32_t i;
+	// 其实就是拿报文的gpa在vhostuser维护的mem_regions中逐个对比，看属于
+	// 哪个page，然后报文在vhostuser中的vva = page->vva + （gpa - page->gpa）
+	for (i = 0; i < mem->nregions; i++) {
+		r = &mem->regions[i];
+		if (gpa >= r->guest_phys_addr &&
+		    gpa <  r->guest_phys_addr + r->size) {
+
+			if (unlikely(*len > r->guest_phys_addr + r->size - gpa))
+				*len = r->guest_phys_addr + r->size - gpa;
+
+			return gpa - r->guest_phys_addr +
+			       r->host_user_addr;
+		}
+	}
+	*len = 0;
+
+	return 0;
+}
+```
+vhost_iova_to_vva()是个封装函数，我们不用管。直接看map_one_desc()函数：
+
+```
+static __rte_always_inline int
+map_one_desc(struct virtio_net *dev, struct vhost_virtqueue *vq,
+		struct buf_vector *buf_vec, uint16_t *vec_idx,
+		uint64_t desc_iova, uint64_t desc_len, uint8_t perm)
+{
+	uint16_t vec_id = *vec_idx;
+
+	// 这里为什么有个循环处理？要知道map_one_desc()这个函数只处理一个desc，
+	// 也就是只处理当前的desc，不用管desc.next。答案是：因为desc->addr有可能
+	// 是跨page的，所以需要多次地址转换，特别是开启tso的情况下。
+	while (desc_len) {
+		uint64_t desc_addr;
+		uint64_t desc_chunck_len = desc_len;
+
+		if (unlikely(vec_id >= BUF_VECTOR_MAX))
+			return -1;
+
+		// 地址转换：GPA => VVA
+		desc_addr = vhost_iova_to_vva(dev, vq,
+				desc_iova,
+				&desc_chunck_len,
+				perm);
+		if (unlikely(!desc_addr))
+			return -1;
+
+		rte_prefetch0((void *)(uintptr_t)desc_addr);
+
+		// 这个函数将desc转换后，存储在buf_vec中，然后再上层函数统一处理
+		buf_vec[vec_id].buf_iova = desc_iova;
+		buf_vec[vec_id].buf_addr = desc_addr;
+		buf_vec[vec_id].buf_len  = desc_chunck_len;
+
+		desc_len -= desc_chunck_len;
+		desc_iova += desc_chunck_len;
+		vec_id++;
+	}
+	*vec_idx = vec_id;
+
+	return 0;
+}
+```
+
+接着看fill_vec_buf_split()函数：
+
+```
+static __rte_always_inline int
+fill_vec_buf_split(struct virtio_net *dev, struct vhost_virtqueue *vq,
+			 uint32_t avail_idx, uint16_t *vec_idx,
+			 struct buf_vector *buf_vec, uint16_t *desc_chain_head,
+			 uint32_t *desc_chain_len, uint8_t perm)
+{
+	// 获取desc ring中的下标
+	uint16_t idx = vq->avail->ring[avail_idx & (vq->size - 1)];
+	uint16_t vec_id = *vec_idx;
+	uint32_t len    = 0;
+	uint64_t dlen;
+	uint32_t nr_descs = vq->size;
+	uint32_t cnt    = 0;
+	struct vring_desc *descs = vq->desc;
+	struct vring_desc *idesc = NULL;
+
+	// 上文提到过，desc ring中下标是不会超过数组长度的，因为其值来自desc.next
+	if (unlikely(idx >= vq->size))
+		return -1;
+
+	*desc_chain_head = idx;
+
+	if (vq->desc[idx].flags & VRING_DESC_F_INDIRECT) {
+		......
+	}
+
+	while (1) {
+		......
+		len += descs[idx].len;
+
+		// 为一个desc转换地址
+		if (unlikely(map_one_desc(dev, vq, buf_vec, &vec_id,
+						descs[idx].addr, descs[idx].len,
+						perm))) {
+			free_ind_table(idesc);
+			return -1;
+		}
+
+		// 判断desc list是否截止
+		if ((descs[idx].flags & VRING_DESC_F_NEXT) == 0)
+			break;
+
+		// 处理该报文的下一个desc
+		idx = descs[idx].next;
+	}
+
+	// 报文总长度
+	*desc_chain_len = len;
+	// vsec总个数
+	// 注意：desc是可以跨page的，但是用于接收的desc_vec是不跨page的
+	// 所以desc_vec中的元素的个数有可能回避desc的个数多。
+	*vec_idx = vec_id;
+
+	if (unlikely(!!idesc))
+		free_ind_table(idesc);
+
+	return 0;
+}
+```
+
+
 ## 6. Vhost向Guest发包
 
 ## 7. Virtio的前后端通知机制

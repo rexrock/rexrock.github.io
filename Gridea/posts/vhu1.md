@@ -323,7 +323,7 @@ static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
 
         /* detach_buf_split clears data, so grab it now. */
         ret = vq->split.desc_state[i].data;
-		// OK，报文已成功提取，时方掉这个desc，如果占用了多个desc，会在detach_buf_split中一起
+		// OK，报文已成功提取，释放掉这个desc，如果占用了多个desc，会在detach_buf_split中一起
 		// 释放（通过flag标记结束）。
         detach_buf_split(vq, i, ctx);
 		// 累加消费者下标

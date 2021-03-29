@@ -8,12 +8,12 @@ feature:
 isTop: false
 ---
 
-![msghdr](./images/1616982518757.png)
+![msghdr](https://rexrock.github.io/post-images/1616982518757.png)
 
 include/linux/uio.h
-![iovce](./images/1616982548951.png)
+![iovce](https://rexrock.github.io/post-images/1616982548951.png)
 其中nlmsg_flags用于设置消息标志，包括如下：
-![nlmsg_flags](./images/1616982587013.png)
+![nlmsg_flags](https://rexrock.github.io/post-images/1616982587013.png)
 
 include/linux/socket.h
-![msghdr](./images/1616982623148.png)
+![msghdr](https://rexrock.github.io/post-images/1616982623148.png)

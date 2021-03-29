@@ -522,7 +522,7 @@ fill_vec_buf_split(struct virtio_net *dev, struct vhost_virtqueue *vq,
 	return 0;
 }
 ```
-
+copy_desc_to_mbuf()这个函数不想太详细的看了，改函数主要就是将buf_vec中的数据拷贝到mbuf中。并且根据virtio_hdr初始化mbuf相关参数（例如offload相关参数等）。
 
 ## 6. Vhost向Guest发包
 

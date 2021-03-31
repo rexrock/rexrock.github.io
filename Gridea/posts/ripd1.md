@@ -149,7 +149,7 @@ ripd(config-router)# no timers basic
 ## 11. 设置管理距离
 
 管理距离是一种对路由选择信息的可信度进行排序的方法。管理距离是一个0-255的证书，值越小可信度越高。尽管管理距离可以配置为1-9，但是他们被保留内部使用，不推荐使用他们。
-![enter description here](./images/1617148423731.png)
+![enter description here](https://rexrock.github.io/post-images/1617148423731.png)
 
 ```
 ripd(config-router)# distance <1-255> [RIP command]

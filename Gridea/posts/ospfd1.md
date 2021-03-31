@@ -46,7 +46,7 @@ ospfd(config-router)# no distance <1-255>
 ```
 
 ## 6. 创建OSPF区域
-![ospf](./images/1617148712508.png)
+![ospf](https://rexrock.github.io/post-images/1617148712508.png)
 
 **network命令和area命令有啥区别？**
 
@@ -77,11 +77,11 @@ ospfd(config-router)# no area a.b.c.d virtual-link a.b.c.d
 ospfd(config-router)# no area <0-4294967295> virtual-link a.b.c.d
 ```
 
-![enter description here](./images/1617148778812.png)
+![enter description here](https://rexrock.github.io/post-images/1617148778812.png)
 
-![enter description here](./images/1617148793821.png)
+![enter description here](https://rexrock.github.io/post-images/1617148793821.png)
 
 ## 8. 外部路由的Metric说明
 
-![enter description here](./images/1617148921184.png)
+![enter description here](https://rexrock.github.io/post-images/1617148921184.png)
 

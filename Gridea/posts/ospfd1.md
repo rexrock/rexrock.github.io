@@ -81,3 +81,7 @@ ospfd(config-router)# no area <0-4294967295> virtual-link a.b.c.d
 
 ![enter description here](./images/1617148793821.png)
 
+## 8. 外部路由的Metric说明
+
+![enter description here](./images/1617148921184.png)
+

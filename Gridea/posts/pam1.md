@@ -25,7 +25,7 @@ pam框架有以下四部分组成：
 
 下图说明了 PAM 体系结构。应用程序通过 PAM 应用编程接口 (application programming interface, API) 与 PAM 库进行通信。PAM 模块通过 PAM 服务提供者接口 (service provider interface, SPI) 与 PAM 库进行通信。通过这种方式，PAM 库可使应用程序和模块相互进行通信。
 
-![enter description here](./images/1617149921990.png)
+![enter description here](https://rexrock.github.io/post-images/1617149921990.png)
 
 ## 3. Pam服务模块
 
@@ -40,10 +40,10 @@ PAM 服务模块是一个共享库（动态链接库），用于为系统登录�
 
 每个使用PAM认证的应用程序都以pam_start开始，pam_end结束。实际做认证工作的API函数有六个（以下将这六个函数简称为认证API）：
 
-![enter description here](./images/1617149984619.png)
+![enter description here](https://rexrock.github.io/post-images/1617149984619.png)
 
 应用程序的API还有很多，但是服务模块的API只有6个，如下图：
-![enter description here](./images/1617149998844.png)
+![enter description here](https://rexrock.github.io/post-images/1617149998844.png)
 
 其中应用程序API的函数原型均为：
 
@@ -78,7 +78,7 @@ PAM 库 libpam 是PAM体系结构中的中心元素：
 ## 5. Pam配置文件（/etc/pam.conf）
 
 该文件是由如下的5项所组成的：
-![enter description here](./images/1617150114707.png)
+![enter description here](https://rexrock.github.io/post-images/1617150114707.png)
 
 ### 5.1 service-name
 
@@ -116,14 +116,14 @@ PAM 库 libpam 是PAM体系结构中的中心元素：
 
 如果为服务操作定义了多个模块，那么这些模块就堆叠起来，即，对于该服务存在一个 PAM 堆栈。下图说明如何为每种类型的控制标志记录成败信息
 
-![enter description here](./images/1617150280915.png)
+![enter description here](https://rexrock.github.io/post-images/1617150280915.png)
 
 其实在linux系统中，/etc/pam.conf这个配置文件已经起不到什么作用了，因为它的作用完全被/etc/pam.d/中“对应”的配置文件代替了。/etc/pam.d/中“对应”的配置文件就是以/etc/pam.conf中service-name项的“值”命名的。如下图所示：
 
-![enter description here](./images/1617150296607.png)
+![enter description here](https://rexrock.github.io/post-images/1617150296607.png)
 
 上图中service-name的值为myyanzheng，那么在/etc/pam.d/中就有这样一个名字为myyanzheng的文件，其内容如下图所示：
 
-![enter description here](./images/1617150313336.png)
+![enter description here](https://rexrock.github.io/post-images/1617150313336.png)
 
 可以看到上图中配置文件myyanzheng的内容只比/etc/pam.conf少了service-name一项，之所少这一项，因为该配置文件的名字就是service-name。

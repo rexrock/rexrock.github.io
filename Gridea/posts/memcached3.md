@@ -51,7 +51,7 @@ memcached -m 64 -M -u root -d -l 127.0.0.1 -p 11211 -U 11212
 **命令格式：**
 3个命令：set、add和replace，要求服务器按照关键字存储数据。
 客户端先发送一个命令行，然后才可以发送一个数据块；命令执行后客户端等待一行反馈，用来表示命令执行成功与否。
-![enter description here](./images/1618444054397.png)
+![enter description here](https://rexrock.github.io/post-images/1618444054397.png)
 
 **参数说明：**
  - "command name"是 set、add或者replace。set表示存储该数据；add表示如果服务器没有保存该关键字的情况下，存储该数据；replace表示在服务器已经拥有该关键字的情况下，替换原有内容。
@@ -66,20 +66,20 @@ memcached -m 64 -M -u root -d -l 127.0.0.1 -p 11211 -U 11212
  - STORED表示存储数据成功。
  - NOT_STORED表示发送的数据没有存储，但这不因为错误，而是发生在add或者replace命令不能满足条件时，或者数据项正处于要删除的队列中。
  - 错误消息
-![enter description here](./images/1618444309897.png)
+![enter description here](https://rexrock.github.io/post-images/1618444309897.png)
 
-![enter description here](./images/1618444316522.png)
+![enter description here](https://rexrock.github.io/post-images/1618444316522.png)
 
-![enter description here](./images/1618444321816.png)
+![enter description here](https://rexrock.github.io/post-images/1618444321816.png)
 
 ### 2.2 读取命令
 
 **命令格式：**
 
-![enter description here](./images/1618444345527.png)
+![enter description here](https://rexrock.github.io/post-images/1618444345527.png)
 
 返回的数据格式
-![enter description here](./images/1618444355776.png)
+![enter description here](https://rexrock.github.io/post-images/1618444355776.png)
 
 发送命令后，客户端等待返回一个或多个数据项，每个数据项的格式是一个文本行，后跟着一个数据块。当所有的数据项发送完毕后，服务器发送字符串”END"r"n”表示服务器反馈数据的结束。
 
@@ -88,11 +88,11 @@ memcached -m 64 -M -u root -d -l 127.0.0.1 -p 11211 -U 11212
  - "bytes"是紧跟文本行后数据块的长度，不包括终结符”"r"n”。
  - "datablock"是数据项的数据部分。
 如果请求命令行中的有些关键字对应的数据项没有被返回，这意味着服务器没有该关键字标示下的数据项（有可能是从来没有被存储过，或者存储过但被删除掉以腾出内存空间，或者数据项超时了，再或者它被某个客户端删除了）。
-![enter description here](./images/1618444498746.png)
+![enter description here](https://rexrock.github.io/post-images/1618444498746.png)
 
 ### 2.3 删除命令
 delete每次只能删除一个K-V对象
-![enter description here](./images/1618444537311.png)
+![enter description here](https://rexrock.github.io/post-images/1618444537311.png)
 
  - “key”是客户端希望服务器删除数据项的关键字
  - "time"是客户端希望服务器阻止add和replace命令使用该关键字数据项的秒数，可以是相对时间也可以是UNIX的绝对时间。在这段时间内，数据项被放入一个删除队列，它不能被get命令读取，在其上使用add和replace也会失败，但使用set命令可以成功。当这个时间过去后，数据项从服务器的内存中真正的删除。该参数是可选参数，如果不存在默认为0，这意味着立即从服务器上删除。
@@ -102,62 +102,62 @@ delete每次只能删除一个K-V对象
  - "DELETED"r"n" 表示数据项删除成功
  - "NOT_FOUND"r"n" 表示该关键字指定的数据项在服务器上没有找到
  - 其他错误消息
-![enter description here](./images/1618444579632.png)
+![enter description here](https://rexrock.github.io/post-images/1618444579632.png)
 
 ### 2.4 flush_all命令
 清除memcached中的所有数据
-![enter description here](./images/1618444639016.png)
+![enter description here](https://rexrock.github.io/post-images/1618444639016.png)
 
 ### 2.5 incr/decr命令
-![enter description here](./images/1618444663601.png)
+![enter description here](https://rexrock.github.io/post-images/1618444663601.png)
 
 注意：
 
  - 命令中的value不是K-V对象中的value，而是对应的“加数”或者“减数”，K-V对象中value将会加上或者减去这个值，这个值是一个32位无符号整数。
  - 只有K-V对象的value全部为数字时（即数字之间可以有空格，但是不可有任何其他字符），才可以使用incr/decr命令，当有很多被空格隔开的数字时，只操作第一个数字。
 
-![enter description here](./images/1618444684905.png)
+![enter description here](https://rexrock.github.io/post-images/1618444684905.png)
 
 ### 2.6 stats命令
 
 “stats”命令用来查询服务器的运行情况和其他内部数据。它有两种情况，以有无参数来区分：
 
-![enter description here](./images/1618444709067.png)
+![enter description here](https://rexrock.github.io/post-images/1618444709067.png)
 
 当接收到没有带参数的“stats”命令后，服务器发送许多类似与如下格式的文本行：
 
-![enter description here](./images/1618444720461.png)
+![enter description here](https://rexrock.github.io/post-images/1618444720461.png)
 
-![enter description here](./images/1618444726931.png)
+![enter description here](https://rexrock.github.io/post-images/1618444726931.png)
 
 在所有STAT文本行中，是该统计项目的名称，是其数据。下面是一份stats命令反馈的所有统计项目的列表，后面跟着其值的数据类型。在数据类型列中，”32u”表示一个32位无符号整数，”64u”表示一个64位无符号整数，”32u:32u”表示是两个用冒号分割的32位无符号整数。
 
-![enter description here](./images/1618444737755.png)
+![enter description here](https://rexrock.github.io/post-images/1618444737755.png)
 
-![enter description here](./images/1618444744254.png)
+![enter description here](https://rexrock.github.io/post-images/1618444744254.png)
 
 ### 2.7 quit命令
 
 "quit"是一个没有参数的命令。其格式如下
 
-![enter description here](./images/1618444772620.png)
+![enter description here](https://rexrock.github.io/post-images/1618444772620.png)
 
 当服务器接受到此命令后，就关闭与该客户的连接。不管怎样，客户端可以在任意不需要该连接的时刻关闭它，而不需要发送该命令。
 
-![enter description here](./images/1618444783381.png)
+![enter description here](https://rexrock.github.io/post-images/1618444783381.png)
 
 ### 2.8 version命令
 
 返回版本信息
 
-![enter description here](./images/1618444811386.png)
+![enter description here](https://rexrock.github.io/post-images/1618444811386.png)
 
 服务器发回的反馈信息如下：
 
  - **"VERSION "** 是从服务器返回的版本字符串。
  - **错误消息:**
 
-![enter description here](./images/1618444858735.png)
+![enter description here](https://rexrock.github.io/post-images/1618444858735.png)
 
 ## 3. 关于通信
 

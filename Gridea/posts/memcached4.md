@@ -9,11 +9,11 @@ isTop: false
 ---
 
 memcached.h中规定key的长度要小于250byte
-![enter description here](./images/1618445124260.png)
+![enter description here](https://rexrock.github.io/post-images/1618445124260.png)
 
 slab（slab（value）的长度限制默认是1M，可以使用-I选项更改此限制value）的长度限制默认是1M，可以使用-I选项更改此限制
 
-![enter description here](./images/1618445154059.png)
+![enter description here](https://rexrock.github.io/post-images/1618445154059.png)
 
 ```
 -I            Override the size of each slab page. Adjusts max item size

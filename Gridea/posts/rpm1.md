@@ -67,4 +67,7 @@ install -m 0644 test.conf %{buildroot}/etc/hello-test/test.conf
 ```
 
 ## 4. 执行rpmbuild开始打包
+
+```
 rpmbuild -ba hello-test.spec
+```

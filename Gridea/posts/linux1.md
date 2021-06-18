@@ -41,11 +41,11 @@ tar -cvpzf backup.tar.gz \
 
 2. 解压：
 	```
-		tar -xvpzf backup.tar.gz -C /media/ --numeric-owner
+	tar -xvpzf backup.tar.gz -C /media/ --numeric-owner
 	```
 	解压后需要根据分区调整文件位置，之后需要创建一些没有打包过来的临时目录
 	```
-		mkdir /proc /sys /mnt /media # 不全，自己看缺啥目录就创建啥目录
+	mkdir /proc /sys /mnt /media # 不全，自己看缺啥目录就创建啥目录
 	```
 
 3. grub恢复

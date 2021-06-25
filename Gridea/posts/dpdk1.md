@@ -14,7 +14,7 @@ isTop: false
 驱动：OFED 4.3/4.5/5.3
 DPDK： 18.05、18.11
 拓扑：
-![enter description here](./images/1624620266777.png)
+![enter description here](https://rexrock.github.io/post-images/1624620266777.png)
 
 ## 2. 初始化配置网络
 由于是使用VF测试，所以不依赖外部环境，也不依赖物理网口的link状态，只要你有CX4/CX5的网卡就行：
@@ -192,5 +192,5 @@ p1 = Ether(src="fa:65:a1:a6:75:04",dst="fa:65:a1:a6:75:03")/IP(src="1.1.1.2",dst
 p2 = Ether(src="fa:65:a1:a6:75:04",dst="fa:65:a1:a6:75:03")/IP(src="1.1.1.2",dst="1.1.1.1")/UDP()/VXLAN(vni=100)/Ether(src="fa:65:a1:a6:77:14",dst="fa:65:a1:a6:77:01")/IP(src="192.168.1.10",dst="192.168.1.210") / TCP(sport=8001, dport=1002) / "netease"    
 ```
 观察结果：
-![enter description here](./images/1624621436702.png)
+![enter description here](https://rexrock.github.io/post-images/1624621436702.png)
 

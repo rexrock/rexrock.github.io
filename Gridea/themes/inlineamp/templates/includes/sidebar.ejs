@@ -1,0 +1,83 @@
+<div class="sidebar">
+  <aside id="profile-2" class="widget widget_profile">
+    <div class="profile-box">
+      <div class="profile-avatar">
+        <amp-img src="<%= themeConfig.domain %>/images/avatar.png?v=<%= site.utils.now %>" alt="avatar"
+          layout="fill"></amp-img>
+      </div>
+      <div class="profile-content">
+        <div class="amp-wp-681d4ff">
+          <%- site.customConfig.metaDescription || themeConfig.siteDescription %>
+        </div>
+
+      </div>
+    </div>
+  </aside>
+  <% if (site.customConfig.search === 'googlesearch') { %>
+    <aside id="search-10" class="widget widget_search">
+      <form target="_top" role="search" method=get class="search-form" action="https://www.google.com/search">
+        <input type=hidden name=domains value="<%= themeConfig.domain %>">
+        <input type=hidden name=sitesearch value="<%= themeConfig.domain %>">
+        <input name="hl" value="zh-CN" type="hidden">
+        <input required type="text" class="search-field" placeholder="搜索…" name="q">
+        <button type="submit"
+          class="search-submit"></button>
+      </form>
+    </aside>
+    <% } %>
+    <% if (site.customConfig.search === 'baidusearch') { %>
+      <aside id="search-10" class="widget widget_search">
+        <form target="_top" role="search" method=get class="search-form" action="https://www.baidu.com/baidu">
+          <input type=hidden name=domains value="<%= themeConfig.domain %>">
+          <input type=hidden name=sitesearch value="<%= themeConfig.domain %>">
+          <input name="hl" value="zh-CN" type="hidden">
+          <input required type="text" class="search-field" placeholder="搜索…" name="q">
+          <button type="submit"
+            class="search-submit"></button>
+        </form>
+      </aside>
+      <% } %>
+
+    <% if (site.customConfig.latestarticles) { %>
+    <aside id="recent-posts-2" class="widget widget_recent_entries">
+      <h4 class="widget-title">近期文章</h4>
+       <ul>
+        <% site.posts.forEach(function(post, index) { %>
+          <% if (index < 3) { %>
+        <li>
+         <a href="<%= post.link %>" aria-current="page"><%= post.title %></a>
+        </li>
+        <% } %>
+        <% }); %>
+      </ul>
+   </aside>
+   <% } %>
+
+   <% if (site.customConfig.tag) { %>
+    <aside id="categories-2" class="widget widget_categories">
+      <h4 class="widget-title">标签</h4>
+      <ul>
+          <% site.tags.forEach(function(tag, tagIndex) { %>
+            <li class="cat-item"><a href="<%= tag.link %>">
+            <%= tag.name %>
+          </a>
+          <% }); %>
+        </li>
+  
+      </ul>
+    </aside>
+    <% } %>
+
+  <aside id="linkcat-2" class="widget widget_links">
+  <h4 class="widget-title">友链</h4>
+  <ul class="xoxo blogroll">
+    <% if (site.customConfig.friends) { %>
+      <% site.customConfig.friends.forEach(function(friend) { %>
+    <li><a href="<%= friend.siteLink %>" target="_blank"><%= friend.siteName %></a></li>
+    <% }); %>
+    <% } %>
+  </ul>
+</aside>
+
+
+</div>

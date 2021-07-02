@@ -1,0 +1,65 @@
+<!doctype html>
+<html amp lang="<%= site.customConfig.lang %>">
+
+<head>
+  <%- include('./includes/tag-head', { siteTitle: `${tag.name} | ${themeConfig.siteName}` }) %>
+</head>
+
+
+<body class="home blog">
+  <input type="checkbox" id="header-menu-button">
+  <header id="commonTop">
+    <div class="top-container">
+      <div class="title-menus-area">
+        <a class="blog-title" href="<%= themeConfig.domain %>"><%= themeConfig.siteName %></a>
+        <label for="header-menu-button" class="top-menus">
+          <nav class="menu-menu-1-container">
+            <ul id="menu-menu-1" class="menu">
+              <% menus.forEach(function(menu) { %>
+              <% if (menu.openType === 'External') { %>
+              <li>
+                <a href="<%= menu.link %>" aria-current="page"><%= menu.name %></a></li>
+              <% } else { %>
+              <li>
+                <a href="<%= menu.link %>" aria-current="page"><%= menu.name %></a></li>
+              <% } %>
+              <% }); %>
+            </ul>
+          </nav>
+        </label>
+      </div>
+      <div class="tagline">
+        <div class="tagline-main">标签：<%= tag.name %></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <%- include('./includes/post-list') %>
+    <%- include('./includes/sidebar') %>
+    <%- include('./includes/scrolltop') %>
+
+    
+  </main>
+
+  <%- include('./includes/footer') %>
+  <% if (site.customConfig.socialshare === 'addthis') { %>
+    <% if (site.customConfig.addthisdatawidgettype === 'globalfloating') { %>
+      <amp-addthis
+      width="320"
+      height="92"
+      layout="responsive"
+      data-pub-id="<%= site.customConfig.addthisdatapubid %>"
+      data-widget-id="<%= site.customConfig.addthisdatawidgetid %>"
+      data-widget-type="floating"
+      data-title="<%= themeConfig.siteName %>"
+      data-url="<%= themeConfig.domain %>"
+      data-description="<%- site.customConfig.metaDescription || themeConfig.siteDescription %>"
+    >
+    </amp-addthis>
+        <% } %>
+        <% } %>
+
+</body>
+
+</html>

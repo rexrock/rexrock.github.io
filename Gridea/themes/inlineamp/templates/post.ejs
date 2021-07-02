@@ -1,0 +1,159 @@
+<!doctype html>
+<html amp lang="<%= site.customConfig.lang %>">
+
+<head>
+  <%- include('./includes/post-head', { siteTitle: `${post.title} | ${themeConfig.siteName}` }) %>
+
+</head>
+
+<body>
+  <input type="checkbox" id="header-menu-button">
+  <%- include('./includes/header') %>
+  <main>
+    <div class="main-container">
+
+      <div class="article-info">
+        <% if (post.tags[0]) { %>
+          <div class="flex-box meta-category">
+            <a class="post-cate" href="<%= post.tags[0].link %>"><%= post.tags[0].name %></a></div>
+          <% }; %>
+        <h2 class="article-title">
+          <a href="<%= post.link %>"><%= post.title %></a>
+        </h2>
+        <div class="flex-box">
+          <div class="flex-box post-meta-box">
+            <a class="post-meta" href="<%= themeConfig.domain %>"><span
+                class="iconfont icon-mr-postmeta"></span><%= site.customConfig.avatar %></a>
+            <span class="post-meta"><span class="iconfont icon-mr-postmeta"></span><%= site.utils.moment(post.date).locale('zh-cn').format("YYYY [年] MM	[月] Do") %></span>
+            <% if (site.customConfig.count) { %>
+            <span class="post-meta"><span class="iconfont icon-mr-postmeta"></span>
+            <amp-script layout="container" script="dsq-count-scr">
+              <a href="<%= post.link %>#disqus_thread" data-disqus-identifier="<%= post.link %>"></a>
+          </amp-script>
+          </span>
+          <% } %>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="content">
+        <%- post.content %>
+      </div>
+
+      <% if (post.nextPost && !post.hideInList) { %>
+      <nav class="post-nav">
+        <% if (post.prevPost) { %>
+        <div class="nav-previous">
+          <a class="post-nav-link-active" title="<%= post.prevPost.title %>" href="<%= post.prevPost.link %>">上一篇文章</a>
+        </div>
+        <% } %>
+        <% if (post.nextPost) { %>
+        <div class="nav-next">
+          <a class="post-nav-link-active" title="<%= post.nextPost.title %>" href="<%= post.nextPost.link %>">下一篇文章</a>
+          <% } %>
+
+        </div>
+      </nav>
+      <% } %>
+
+      <% if (site.customConfig.socialshare === 'ampshare') { %>
+      <%- include('./includes/share') %>
+      <% } %>
+      <% if (site.customConfig.socialshare === 'addthis') { %>
+        
+  <% if (site.customConfig.addthisdatawidgettype === 'inline') { %>
+    <amp-addthis
+    width="320"
+    height="92"
+    layout="responsive"
+    data-pub-id="<%= site.customConfig.addthisdatapubid %>"
+    data-widget-id="<%= site.customConfig.addthisdatawidgetid %>"
+    data-widget-type="inline"
+    data-title="<%= post.title %>"
+    data-url="<%= post.link %>"
+    data-media="<%= post.feature %>"
+    data-description="<%- post.description %>"
+  >
+  </amp-addthis>
+   <% } %>
+ <% if (site.customConfig.addthisdatawidgettype === 'inline2') { %>
+  
+ <% } %>
+
+      <% } %>
+
+      <div class="post-tags">
+        <% post.tags.forEach(function(tag, tagIndex) { %>
+        <a href="<%= tag.link %>" rel="tag"><%= tag.name %></a>        
+        <% }); %>       
+      </div>
+
+
+        <% if (typeof commentSetting !== 'undefined' && commentSetting.showComment) { %>
+        <% if (site.customConfig.comments === 'disqus') { %>
+          <%- include('./includes/disqus') %>
+          <% } %>
+
+          <% if (site.customConfig.comments === 'gitalk') { %>
+            <%- include('./includes/gitalk') %>
+            <% } %>
+
+            <% if (site.customConfig.comments === 'utterances') { %>
+              <%- include('./includes/utterances') %>
+              <% } %>
+
+              <% if (site.customConfig.comments === 'valine') { %>
+                <%- include('./includes/valine') %>
+                <% } %>
+
+          <% if (site.customConfig.comments === 'facebookcomments') { %>
+          <%- include('./includes/facebookcomments') %>
+          <% } %>
+          <% } %>
+
+    </div>
+
+    <%- include('./includes/post-sidebar') %>
+    <%- include('./includes/scrolltop') %>
+  </main>
+  <%- include('./includes/footer') %>
+
+  <% if (site.customConfig.socialshare === 'addthis') { %>
+
+    <% if (site.customConfig.addthisdatawidgettype === 'floating') { %>
+      <amp-addthis
+      width="320"
+      height="92"
+      layout="responsive"
+      data-pub-id="<%= site.customConfig.addthisdatapubid %>"
+      data-widget-id="<%= site.customConfig.addthisdatawidgetid %>"
+      data-widget-type="floating"
+      data-title="<%= post.title %>"
+      data-url="<%= post.link %>"
+      data-media="<%= post.feature %>"
+      data-description="<%- post.description %>"
+    >
+    </amp-addthis>
+      <% } %>
+      <% if (site.customConfig.addthisdatawidgettype === 'globalfloating') { %>
+        <amp-addthis
+        width="320"
+        height="92"
+        layout="responsive"
+        data-pub-id="<%= site.customConfig.addthisdatapubid %>"
+        data-widget-id="<%= site.customConfig.addthisdatawidgetid %>"
+        data-widget-type="floating"
+        data-title="<%= post.title %>"
+        data-url="<%= post.link %>"
+        data-media="<%= post.feature %>"
+        data-description="<%- post.description %>"
+      >
+      </amp-addthis>
+        <% } %>
+      <% } %>
+
+
+</body>
+
+</html>

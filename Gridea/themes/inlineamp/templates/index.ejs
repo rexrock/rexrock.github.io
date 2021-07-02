@@ -1,0 +1,42 @@
+<!doctype html>
+<html amp lang="<%= site.customConfig.lang %>">
+
+<head>
+  <%- include('./includes/head', { siteTitle: themeConfig.siteName }) %>
+
+</head>
+
+<body class="home blog">
+  <input type="checkbox" id="header-menu-button">
+  <%- include('./includes/header') %>
+
+  <main>
+    <%- include('./includes/post-list') %>
+    <%- include('./includes/sidebar') %>
+    <%- include('./includes/scrolltop') %>
+
+    
+  </main>
+
+  <%- include('./includes/footer') %>
+  
+  <% if (site.customConfig.socialshare === 'addthis') { %>
+    <% if (site.customConfig.addthisdatawidgettype === 'globalfloating') { %>
+      <amp-addthis
+      width="320"
+      height="92"
+      layout="responsive"
+      data-pub-id="<%= site.customConfig.addthisdatapubid %>"
+      data-widget-id="<%= site.customConfig.addthisdatawidgetid %>"
+      data-widget-type="floating"
+      data-title="<%= themeConfig.siteName %>"
+      data-url="<%= themeConfig.domain %>"
+      data-description="<%- site.customConfig.metaDescription || themeConfig.siteDescription %>"
+    >
+    </amp-addthis>
+        <% } %>
+        <% } %>
+
+</body>
+
+</html>

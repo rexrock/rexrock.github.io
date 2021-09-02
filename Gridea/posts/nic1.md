@@ -10,7 +10,7 @@ isTop: false
 
 ## 1. 测试拓扑
 
-![测试拓扑](./images/1630569600330.png)
+![测试拓扑](https://rexrock.github.io/post-images/1630569600330.png)
 
 ## 2. 配置脚本
 

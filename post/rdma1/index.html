@@ -1,0 +1,287 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>RDMA编程模型 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    RDMA编程模型
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2020-03-27 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/GnXUlT2Sn/" class="post-tags">
+                            # RDMA
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <h2 id="1-连接管理">1. 连接管理</h2>
+<p><strong>通过rdmacm实现连接管理：</strong></p>
+<ul>
+<li>Socket既管理连接又管理传输；</li>
+<li>RDMACM只管理连接，数据传输下面再介绍；</li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/rdma1_1.png" alt="rdma1_1" loading="lazy"></figure>
+<h2 id="2-数据传输">2. 数据传输</h2>
+<p><strong>RDMA的三种数据传输模式：</strong></p>
+<ul>
+<li>双边操作—Send/Receive，收发端都参与才能完成；</li>
+<li>单边操作—Write，提前明确两边的收发地址，数据传输过程，无需接收端参与；</li>
+<li>单边操作—Read，提前明确两边的收发地址，数据传输过程，无需发送端参与；</li>
+</ul>
+<p><strong>基于socket的通信不用关心物理设备，但是RDMA通信必须要跟RDMA设备绑定！！！</strong></p>
+<ul>
+<li>创建socket的时候，不管管最终从哪个设备出去，也不用做任何跟绑定设备相关的操作；</li>
+<li>创建qp的时候，必须指定在哪个RDMA设备上创建qp；</li>
+</ul>
+<p><strong>跟哪个RDMA设备绑定</strong></p>
+<ul>
+<li>如果不使用rdmacm，需要用户自己根据IP地址来寻找跟哪个RDMA设备绑定，或者干脆手动指定；然后打开设备：struct ibv_context *ctx = ibv_open_device ()</li>
+<li>如果使用了rdmacm，则通过rdma_resolve_addr自动找到要绑定的设备，并返回struct ibv_context *ctx;</li>
+</ul>
+<h3 id="21-创建数据传输需要的qp-cq">2.1 创建数据传输需要的QP、CQ</h3>
+<ul>
+<li>
+<p>申请保护域PD：ibv_alloc_pd()</p>
+</li>
+<li>
+<p>创建CQ:</p>
+<ul>
+<li>
+<p>创建cq_event_channel：ibv_create_comp_channel()</p>
+</li>
+<li>
+<p>创建cq：ibv_create_cq()</p>
+</li>
+<li>
+<p>指定cq的通知机制：ibv_req_notify_cq(),这样的话当一个cqe(completion queue entry )被放到cq中时，会产生一个completion event ，被放到event channel中。然后我们通过ibv_get_cq_event（阻塞）得到event，再调用ibv_poll_cq获取cqe。否则指定通过ibv_poll_cq（非阻塞）不停的轮询。</p>
+</li>
+</ul>
+</li>
+<li>
+<p>创建QP并指定其CQ、PD、ibver_ctx： rdma_create_qp()</p>
+</li>
+<li>
+<p>注册将要参与数据传输的内存：ibv_reg_mr（）,返回这块内存的key，对端有了key才能访问这块内存；</p>
+</li>
+</ul>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/rdma1_2.png" alt="rdma1_2" loading="lazy"></figure>
+<h3 id="22-创建qp的契机">2.2 创建QP的契机</h3>
+<p>图中标★处：</p>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/rdma1_3.png" alt="rdma1_3" loading="lazy"></figure>
+<h3 id="23-传输之sendreceive">2.3 传输之send/receive</h3>
+<figure data-type="image" tabindex="4"><img src="https://rexrock.github.io/post-images/rdma1_4.png" alt="rdma1_4" loading="lazy"></figure>
+<h3 id="25-传输之writeread">2.5 传输之write/read</h3>
+<blockquote>
+<p>前提，被read/write的一端(称接收端)，需要把自己要被read/write的内存，发给发起read/write的一端（称发送端）</p>
+</blockquote>
+<p><strong>发送哪些内容？</strong></p>
+<ul>
+<li>addr，rkey：ibv_reg_mr，返回两个key，lkey即本端网卡操作这端内存的key，rkey即对端网卡操作这段内存的key。</li>
+</ul>
+<p><strong>怎么把addr、rkey发送给对端？</strong></p>
+<ul>
+<li>随便：可以通过上面讲的send/receive，或者干脆通过TCP/IP传输这种数据；</li>
+</ul>
+<figure data-type="image" tabindex="5"><img src="https://rexrock.github.io/post-images/rdma1_5.png" alt="rdma1_5" loading="lazy"></figure>
+<h3 id="26-传输之write_with_immediate">2.6 传输之write_with_immediate</h3>
+<blockquote>
+<p>前提，被read/write的一端(称接收端)，需要把自己要被read/write的内存，发给发起read/write的一端（称发送端）</p>
+</blockquote>
+<figure data-type="image" tabindex="6"><img src="https://rexrock.github.io/post-images/rdma1_6.png" alt="rdma1_6" loading="lazy"></figure>
+<h2 id="3-总结">3. 总结</h2>
+<p><strong>前面为什么说RDMA的连接管理合数据传输时分开的？</strong></p>
+<ul>
+<li>Rdma_cm_event管理连接状态；</li>
+<li>Cq管理数据传输的状态；</li>
+</ul>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/openstack1/" class="post-title gt-a-link">
+                    openstack环境搭建
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

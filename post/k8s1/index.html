@@ -1,0 +1,462 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>使用kubeadm搭建一个k8s集群 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    使用kubeadm搭建一个k8s集群
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2021-03-03 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/SNvVFY1lM/" class="post-tags">
+                            # K8S
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <p>官方文档：</p>
+<p><a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/">Installing kubeadm</a></p>
+<p><a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/">Creating a cluster with kubeadm</a></p>
+<p>参考：</p>
+<p><a href="https://zhuanlan.zhihu.com/p/40931670">使用kubeadm安装Kubernetes 1.11</a></p>
+<p><a href="http://docs.kubernetes.org.cn/468.html">Kubernetes kubectl run 命令详解</a></p>
+<p><a href="https://godoc.org/k8s.io/api/core/v1#PodStatus">k8s的API手册</a></p>
+<h2 id="1-安装docker">1. 安装docker</h2>
+<pre><code>curl -sSL https://get.docker.com | sh
+cat &gt; /etc/docker/daemon.json &lt;
+{
+&quot;registry-mirrors&quot;: [&quot;https://dic5s40p.mirror.aliyuncs.com&quot;]
+}
+EOF
+</code></pre>
+<p>使用国内的镜像仓库：</p>
+<pre><code>
+# vi /etc/docker/daemon.json 
+
+{
+  &quot;registry-mirrors&quot;: [
+    &quot;https://hub-mirror.c.163.com&quot;,
+    &quot;https://mirror.baidubce.com&quot;,
+    &quot;https://dic5s40p.mirror.aliyuncs.com&quot;
+  ]
+}
+# systemctl restart docker.service
+</code></pre>
+<p>然后查看修改是否生效：</p>
+<pre><code># docker info | tail -10
+ Debug Mode: false
+ Experimental: false
+ Insecure Registries:
+  127.0.0.0/8
+ Registry Mirrors:
+  https://hub-mirror.c.163.com/
+  https://mirror.baidubce.com/
+  https://dic5s40p.mirror.aliyuncs.com/
+ Live Restore Enabled: false
+</code></pre>
+<p>废弃方法：然后在/etc/default/docker中添加:</p>
+<pre><code>DOCKER\_OPTS=&quot;--registry-mirror=https://dic5s40p.mirror.aliyuncs.com&quot;
+</code></pre>
+<p>然后执行：</p>
+<pre><code>systemctl restart docker
+</code></pre>
+<h2 id="2-安装kubeadm-kubelet-kubectl">2. 安装kubeadm、kubelet、kubectl</h2>
+<p><a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/">https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/</a></p>
+<pre><code>#!/bin/bash
+set -e
+apt-get -y install apt-transport-https ca-certificates curl software-properties-common
+curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | apt-key add -
+add-apt-repository \
+&quot;deb http://mirrors.ustc.edu.cn/kubernetes/apt \
+kubernetes-xenial \
+main&quot;
+apt-get update
+apt-get install -y kubelet=1.17.17-00 kubeadm=1.17.17-00 kubectl=1.17.17-00
+systemctl enable kubelet &amp;&amp; systemctl start kubelet
+</code></pre>
+<h2 id="3-cgroup设置">3. Cgroup设置</h2>
+<p><a href="https://v1-25.docs.kubernetes.io/docs/setup/production-environment/container-runtimes/#cgroup-drivers">Cgroup驱动设置</a></p>
+<p>Debian11默认使用cgroupv2，但是没通过systemd管理，然后kubeadm要求cgroupv2必须使用systemd管理。所以切回cgroup1。kubelet默认也是通过cgroup驱动管理，如果用systemd还需要修改配置文件，麻烦：</p>
+<pre><code># 在内核启动参数中加入
+systemd.unified_cgroup_hierarchy=false systemd.legacy_systemd_cgroup_controller=false
+</code></pre>
+<h2 id="4-无网环境部署k8s集群">4. 无网环境部署k8s集群</h2>
+<p><a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init/#without-internet-connection">提前拉取所需镜像</a></p>
+<pre><code>kubeadm config images list
+kubeadm config images pull --image-repository registry.cn-hangzhou.aliyuncs.com/google\_containers
+</code></pre>
+<h2 id="5-初始化master节点">5. 初始化master节点</h2>
+<pre><code>kubeadm init --pod-network-cidr=10.17.0.0/16 --service-cidr=10.18.200.0/24 --kubernetes-version=v1.18.5 --image-repository registry.cn-hangzhou.aliyuncs.com/google\_containers
+</code></pre>
+<p>成功会显示</p>
+<pre><code>kubeadm join 192.168.100.12:6443 --token yskexa.twu83wmh7n64oczk \
+    --discovery-token-ca-cert-hash sha256:d6dcfecc04d8452875155de28dc229eb4f7842eb55e8f998cade89cc625a679e
+</code></pre>
+<h2 id="6-为了可以执行kubectl">6. 为了可以执行kubectl</h2>
+<pre><code>rm -rf $HOME/.kube
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+</code></pre>
+<h2 id="7-安装pod-network">7. 安装pod network</h2>
+<pre><code>wget https://docs.projectcalico.org/v3.14/manifests/calico.yaml
+# 什么都不要改，会自动检测出pod ip的范围
+kubectl create -f calico.yaml
+</code></pre>
+<p>通过meta-plugin部署macvlan网络（前提也得是先部署calico，但是支持让macvlan口变为默认接口）：</p>
+<p><a href="https://github.com/spidernet-io/cni-plugins/blob/main/docs/usage/basic.md">spidernet-io</a></p>
+<p>为什么选择该plugin呢，因为道客应该用的就是该方案：</p>
+<p><a href="https://docs.daocloud.io/en/network/modules/multus-underlay/macvlan/#install">Daocloud部署macvlan</a></p>
+<p>在VPC环境中，macvlan可能不通，所以可以换成ipvlan，配置基本一致，只不过ipvlan的mode是l2/l3/l3s：</p>
+<p><a href="https://www.cni.dev/plugins/current/main/ipvlan/">配置ipvlan</a></p>
+<p>定义MacVlan网络（<strong>原生的ipam不支持跨节点管理ip资源分配，因此需要为每个节点创建相应的网络</strong>）：</p>
+<pre><code>apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+   name: macvlan-overlay-big1
+   namespace: kube-system
+spec:
+   config: |-
+      {
+          &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+          &quot;name&quot;: &quot;macvlan-overlay-big1&quot;,
+          &quot;plugins&quot;: [
+              {
+                  &quot;type&quot;: &quot;macvlan&quot;,
+                  &quot;master&quot;: &quot;eth0&quot;,
+                  &quot;mode&quot;: &quot;bridge&quot;,
+                  &quot;ipam&quot;: {
+                      &quot;type&quot;: &quot;host-local&quot;,
+                      &quot;subnet&quot;: &quot;172.16.252.0/22&quot;,
+                      &quot;rangeStart&quot;: &quot;172.16.253.102&quot;,
+                      &quot;rangeEnd&quot;: &quot;172.16.253.151&quot;,
+                      &quot;routes&quot;: [
+                          { &quot;dst&quot;: &quot;0.0.0.0/0&quot; }
+                      ],
+                      &quot;gateway&quot;: &quot;172.16.252.1&quot;
+                  }
+              },{
+                  &quot;type&quot;: &quot;router&quot;,
+                  &quot;service_hijack_subnet&quot;: [&quot;10.18.0.0/16&quot;],
+                  &quot;overlay_hijack_subnet&quot;: [&quot;10.17.0.0/16&quot;],
+                  &quot;additional_hijack_subnet&quot;: [],
+                  &quot;migrate_route&quot;: -1,
+                  &quot;rp_filter&quot;: {
+                      &quot;set_host&quot;: true,
+                      &quot;value&quot;: 0
+                  },
+                  &quot;overlay_interface&quot;: &quot;eth0&quot;,
+                  &quot;skip_call&quot;: false
+              }
+          ]
+      }
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+   name: macvlan-standalone-big1
+   namespace: kube-system
+spec:
+   config: |-
+      {
+          &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+          &quot;name&quot;: &quot;macvlan-standalone-big1&quot;,
+          &quot;plugins&quot;: [
+              {
+                  &quot;type&quot;: &quot;macvlan&quot;,
+                  &quot;master&quot;: &quot;eth0&quot;,
+                  &quot;mode&quot;: &quot;bridge&quot;,
+                  &quot;ipam&quot;: {
+                      &quot;type&quot;: &quot;host-local&quot;,
+                      &quot;subnet&quot;: &quot;172.16.252.0/22&quot;,
+                      &quot;rangeStart&quot;: &quot;172.16.253.2&quot;,
+                      &quot;rangeEnd&quot;: &quot;172.16.253.51&quot;,
+                      &quot;routes&quot;: [
+                          { &quot;dst&quot;: &quot;0.0.0.0/0&quot; }
+                      ],
+                      &quot;gateway&quot;: &quot;172.16.252.1&quot;
+                  }
+              },{
+                  &quot;type&quot;: &quot;veth&quot;,
+                  &quot;service_hijack_subnet&quot;: [&quot;10.18.0.0/16&quot;],
+                  &quot;overlay_hijack_subnet&quot;: [&quot;10.17.0.0/16&quot;],
+                  &quot;additional_hijack_subnet&quot;: [],
+                  &quot;migrate_route&quot;: -1,
+                  &quot;rp_filter&quot;: {
+                      &quot;set_host&quot;: true,
+                      &quot;value&quot;: 0
+                  },
+                  &quot;skip_call&quot;: false
+              }
+          ]
+      }
+</code></pre>
+<p>定义IPVlan网络（<strong>原生的cni也不支持固化pod的ip，但是可以通过创建只有一个ip的网络来实现</strong>）：</p>
+<pre><code>apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+   name: ipvlan-standalone-251
+   namespace: kube-system
+spec:
+   config: |-
+      {
+          &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+          &quot;name&quot;: &quot;ipvlan-standalone-251&quot;,
+          &quot;plugins&quot;: [
+              {
+                  &quot;type&quot;: &quot;ipvlan&quot;,
+                  &quot;master&quot;: &quot;eth0&quot;,
+                  &quot;mode&quot;: &quot;l3&quot;,
+                  &quot;ipam&quot;: {
+                      &quot;type&quot;: &quot;host-local&quot;,
+                      &quot;subnet&quot;: &quot;172.16.252.0/22&quot;,
+                      &quot;rangeStart&quot;: &quot;172.16.254.251&quot;,
+                      &quot;rangeEnd&quot;: &quot;172.16.254.251&quot;,
+                      &quot;routes&quot;: [
+                          { &quot;dst&quot;: &quot;0.0.0.0/0&quot; }
+                      ],
+                      &quot;gateway&quot;: &quot;172.16.252.1&quot;
+                  }
+              },{
+                  &quot;type&quot;: &quot;veth&quot;,
+                  &quot;service_hijack_subnet&quot;: [&quot;10.18.0.0/16&quot;],
+                  &quot;overlay_hijack_subnet&quot;: [&quot;10.17.0.0/16&quot;],
+                  &quot;additional_hijack_subnet&quot;: [],
+                  &quot;migrate_route&quot;: -1,
+                  &quot;rp_filter&quot;: {
+                      &quot;set_host&quot;: true,
+                      &quot;value&quot;: 0
+                  },
+                  &quot;skip_call&quot;: false
+              }
+          ]
+      }
+</code></pre>
+<h2 id="8-添加worker节点">8. 添加worker节点</h2>
+<p>在worker节点上执行kubeadm init成功后返回的命令，即</p>
+<pre><code>kubeadm join 192.168.100.12:6443 --token 7u1jah.da6w4tilh0j5097w \
+    --discovery-token-ca-cert-hash sha256:bcd0ce4354f2e8b794b830d7a14389b6a06e46e225486ece8218424a1744583f
+</code></pre>
+<p>注意：token的有效期只有24小时，我们可以用如下命令查看可用的token</p>
+<pre><code>kubeadm token list
+</code></pre>
+<p>如果为空，我们可以通过如下命令创建token</p>
+<pre><code>kubeadm token create
+</code></pre>
+<p>如果你连cert-hash也忘了，那么可以通过如下命令查看</p>
+<pre><code>openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2&gt;/dev/null | \
+   openssl dgst -sha256 -hex | sed 's/^.* //'
+</code></pre>
+<p>设置worker节点role:</p>
+<pre><code>kubectl label node deb11-vhu1-big2 kubernetes.io/role=worker
+</code></pre>
+<h2 id="9-删除worker节点">9. 删除worker节点</h2>
+<pre><code>kubectl drain &lt;node name&gt; --delete-local-data --force --ignore-daemonsets
+# 下面三条命令在worker节点上运行
+kubeadm reset
+iptables -F &amp;&amp; iptables -t nat -F &amp;&amp; iptables -t mangle -F &amp;&amp; iptables -X
+ipvsadm -C # 如果使用了ipvs
+kubectl delete node &lt;node name&gt;
+</code></pre>
+<h2 id="10-删除master节点">10. 删除master节点</h2>
+<pre><code># 在master节点上运行
+kubeadm reset
+</code></pre>
+<h2 id="11-开启关闭dns">11 开启关闭dns</h2>
+<pre><code>kubectl -n kube-system scale --replicas=0 deployment/coredns
+kubectl -n kube-system scale --replicas=1 deployment/coredns
+</code></pre>
+<h2 id="12-让master节点也可以调度pod">12. 让master节点也可以调度pod</h2>
+<pre><code>kubectl taint nodes --all node-role.kubernetes.io/master-
+</code></pre>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/xdp1/" class="post-title gt-a-link">
+                    XDP技术简介
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

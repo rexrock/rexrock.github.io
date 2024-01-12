@@ -1,0 +1,290 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>Flannel和Calico简介 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    Flannel和Calico简介
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2021-03-03 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/IAbZBeTqj/" class="post-tags">
+                            # K8S-NET
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <h2 id="1-flannel">1. Flannel</h2>
+<p>Flannel是CoreOS维护的一个网络组件，Flannel为每个Pod提供全局唯一的IP，Flannel使用ETCD来存储Pod子网与Node IP之间的关系。flanneld守护进程在每台主机上运行，并负责维护ETCD信息和路由数据包。</p>
+<pre><code>https://github.com/coreos/flannel
+</code></pre>
+<h3 id="11-flannel部署">1.1 Flannel部署</h3>
+<pre><code>wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+# 修改net-conf.json配置，选择网络模式“ vxlan / host-gw &quot;，并配置pod-cidr(注意需要跟kubeadm创建集群时指定
+# 的pod-cidr一致，这里不够只能，calico可以自动读取的)
+kubectl apply -f kube-flannel.yml
+</code></pre>
+<p>部署完成，可以在每个node上看到属于这个node子网</p>
+<pre><code>root@k8s-99-12:~# cat /var/run/flannel/subnet.env
+FLANNEL_NETWORK=10.17.0.0/16
+FLANNEL_SUBNET=10.17.0.1/24
+FLANNEL_MTU=1450
+FLANNEL_IPMASQ=true
+</code></pre>
+<h3 id="12-hos-gw工作模式">1.2 hos-gw工作模式</h3>
+<p>如何配置工作模式，上面已有介绍。这里主要看下flannel的host-gw模式时如何工作的</p>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1614303683871.png" alt="enter description here" loading="lazy"></figure>
+<p><strong>说明：</strong></p>
+<p>flannel的host-gw模式，就是将每个节点都当成一个网关，部署中指定pod-cidr后，flannel会为每个node分配一个子网，并将这些node子网信息都存储到etcd中，然后每个节点上flannel守护进程会根据这些信息将其他所有节点都加到本地路由中以实现跨界点访问。下面我们分别看一下node节点上以及pod中的路由是什么样的。</p>
+<p><strong>pod路由</strong></p>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1614303723395.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1614303751754.png" alt="enter description here" loading="lazy"></figure>
+<p><strong>宿主机路由</strong></p>
+<figure data-type="image" tabindex="4"><img src="https://rexrock.github.io/post-images/1614303802333.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="5"><img src="https://rexrock.github.io/post-images/1614303831855.png" alt="enter description here" loading="lazy"></figure>
+<blockquote>
+<p><strong>限制：</strong></p>
+<p>1. Node需要二层互通，否则下一条转发不出去（以我们的云主机为例，云主机之间转发靠流表，因此在云主机上搭建的k8s集群，如果采用flannel的host-gw模式，跨节点访问不通的）。</p>
+</blockquote>
+<h3 id="13-vxlan模式">1.3 vxlan模式</h3>
+<p>vxlan模式的转发路径如下图所示，flannel.1即linux的vxlan port：</p>
+<figure data-type="image" tabindex="6"><img src="https://rexrock.github.io/post-images/1614303854716.png" alt="enter description here" loading="lazy"></figure>
+<p>vxlan的原理这里不做展开，关于linux vxlan的配置及工作原理可参考：<br>
+<a href="http://just4coding.com/2020/04/20/vxlan-fdb/">http://just4coding.com/2020/04/20/vxlan-fdb/</a></p>
+<p>分别看一下12节点和16节点的转发表：</p>
+<figure data-type="image" tabindex="7"><img src="https://rexrock.github.io/post-images/1614303886618.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="8"><img src="https://rexrock.github.io/post-images/1614303902545.png" alt="enter description here" loading="lazy"></figure>
+<p>可以看到每个节点被当成一个网关，只不过底层传输走了vxlan。</p>
+<h2 id="2-calico">2. Calico</h2>
+<h3 id="21-calico部署">2.1 Calico部署</h3>
+<p><strong>部署前确保宿主机的iptables为legacy模式：</strong></p>
+<pre><code>iptables --version
+update-alternatives --set iptables /usr/sbin/iptables-legacy
+update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+update-alternatives --set arptables /usr/sbin/arptables-legacy
+update-alternatives --set ebtables /usr/sbin/ebtables-legacy
+</code></pre>
+<p><strong>参考：</strong><a href="https://docs.projectcalico.org/getting-started/kubernetes/self-managed-onprem/onpremises#install-calico-with-kubernetes-api-datastore-50-nodes-or-less">https://docs.projectcalico.org/getting-started/kubernetes/self-managed-onprem/onpremises#install-calico-with-kubernetes-api-datastore-50-nodes-or-less</a></p>
+<p><strong>参考：</strong><a href="https://blog.51cto.com/14143894/2463392">https://blog.51cto.com/14143894/2463392</a></p>
+<p><strong>说明：</strong></p>
+<p>1. Calico可以自己读取集群的pod-cidr配置，无需像flannel一样去手动修改配置；</p>
+<p>2. Calico网络模式的选择：</p>
+<figure data-type="image" tabindex="9"><img src="https://rexrock.github.io/post-images/1614303947059.png" alt="enter description here" loading="lazy"></figure>
+<ul>
+<li><strong>BGP</strong>：CALICO_IPV4POOL_IPIP=&quot;Never&quot; 且 CALICO_IPV4POOL_VXLAN=”Never“</li>
+<li><strong>IP Tunnel:</strong> CALICO_IPV4POOL_IPIP=&quot;Always&quot; 且 CALICO_IPV4POOL_VXLAN=”Never“</li>
+<li><strong>VXLAN</strong>: CALICO_IPV4POOL_IPIP=&quot;Never&quot; 且 CALICO_IPV4POOL_VXLAN=”Always“</li>
+</ul>
+<h3 id="22-bgp模式">2.2 BGP模式</h3>
+<figure data-type="image" tabindex="10"><img src="https://rexrock.github.io/post-images/1614303997323.png" alt="enter description here" loading="lazy"></figure>
+<p><strong>类似flannel的host-gw模式，但是有两点不同：</strong></p>
+<p>1. 不在使用bridge，所有pod通信全部走路由，例如pod1和pod2的通信的路由如下：</p>
+<figure data-type="image" tabindex="11"><img src="https://rexrock.github.io/post-images/1614304023667.png" alt="enter description here" loading="lazy"></figure>
+<p>2. 其他节点路由信息的添加由BGP负责，flannel则是通过自己的守护进程实现，可以看到calico-node的pod里跑了bird：</p>
+<figure data-type="image" tabindex="12"><img src="https://rexrock.github.io/post-images/1614304040483.png" alt="enter description here" loading="lazy"></figure>
+<p><strong>限制：</strong></p>
+<p>和flannel一样，BGP模式要求节点在二层互通；</p>
+<p><strong>最后看一下两个节点上的路由信息：</strong></p>
+<figure data-type="image" tabindex="13"><img src="https://rexrock.github.io/post-images/1614304078596.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="14"><img src="https://rexrock.github.io/post-images/1614304108422.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="23-ip-tunnel模式">2.3 IP Tunnel模式</h3>
+<figure data-type="image" tabindex="15"><img src="https://rexrock.github.io/post-images/1614304129190.png" alt="enter description here" loading="lazy"></figure>
+<p>IP Tunnel方案相比BGP方案相比，唯一的区别时跨节点通信由原来的路由转发，改为IPIP隧道模式。好处时对节点网络没有二层互通的要求，只要节点三层可达，即可实现通信。</p>
+<figure data-type="image" tabindex="16"><img src="https://rexrock.github.io/post-images/1614304149124.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="24-vxlan模式">2.4 Vxlan模式</h3>
+<figure data-type="image" tabindex="17"><img src="https://rexrock.github.io/post-images/1614304168262.png" alt="enter description here" loading="lazy"></figure>
+<p>现在Calico也支持vxlan模式了，相比IP Tunnel模式，唯一的区别就是隧道类型变了，毕竟vxlan已经成为网络虚拟化的主流方案，和flannel一样都是使用的linux内核提供的vxlan功能。</p>
+<p>直接看下12节点的路由和转发表好了：</p>
+<figure data-type="image" tabindex="18"><img src="https://rexrock.github.io/post-images/1614304182545.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="19"><img src="https://rexrock.github.io/post-images/1614304208695.png" alt="enter description here" loading="lazy"></figure>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/nic1/" class="post-title gt-a-link">
+                    验证网卡PCIe带宽
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

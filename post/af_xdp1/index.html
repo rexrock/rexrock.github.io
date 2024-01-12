@@ -1,0 +1,749 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>AF_XDP技术详解 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    AF_XDP技术详解
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2021-03-03 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/37FuJFu1i/" class="post-tags">
+                            # XDP
+                        </a>
+                    
+                        <a href="https://rexrock.github.io/tag/1emxgPk46/" class="post-tags">
+                            # eBPF
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <p>AF_XDP是一个协议族（例如AF_NET），主要用于高性能报文处理。</p>
+<p>前文<a href="xdp1.md">XDP技术简介</a>中提到过，通过XDP_REDIRECT我们可以将报文重定向到其他设备发送出去或者重定向到其他的CPU继续进行处理。而AF_XDP则利用 bpf_redirect_map()函数，实现将报文重定向到用户态一块指定的内存中，接下来我们看一下这到底是如何做到的。</p>
+<p>我们使用普通的 socket() 系统调用创建一个AF_XDP套接字（XSK）。每个XSK都有两个ring：RX RING 和 TX RING。套接字可以在 RX RING 上接收数据包，并且可以在 TX RING 环上发送数据包。这些环分别通过 setockopts() 的 XDP_RX_RING 和 XDP_TX_RING 进行注册和调整大小。每个 socket 必须至少有一个这样的环。RX或TX描述符环指向存储区域（称为UMEM）中的数据缓冲区。RX和TX可以共享同一UMEM，因此不必在RX和TX之间复制数据包。</p>
+<p>UMEM也有两个 ring：FILL RING 和 COMPLETION RING。应用程序使用 FILL RING 向内核发送可以承载报文的 addr (该 addr 指向UMEM中某个chunk)，以供内核填充RX数据包数据。每当收到数据包，对这些 chunks 的引用就会出现在RX环中。另一方面，COMPLETION RING包含内核已完全传输的 chunks 地址，可以由用户空间再次用于 TX 或 RX。</p>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1614584458041.png" alt="enter description here" loading="lazy"></figure>
+<blockquote>
+<p>关于ring，熟悉dpdk的同学应该都不陌生，这里只做简单介绍。ring就是一个固定长度的数组，并且同时拥有一个生产者和一个消费者，生产者向数组中逐个填写数据，消费者从数组中逐个读取生产者填充的数据，生产者和消费者都用数组的下标表示，不断累加，像一个环一样不断重复生产然后消费的动作，因此得名ring。<br>
+<img src="https://rexrock.github.io/post-images/1614166502357.png" alt="enter description here" loading="lazy"></p>
+</blockquote>
+<blockquote>
+<p>此外需要注意的事，AF_XDP socket不再通过 send()/recv()等函数实现报文收发，而实通过直接操作ring来实现报文收发。</p>
+<ol>
+<li>FILL RING</li>
+</ol>
+<p><strong>fill_ring 的生产者是用户态程序，消费者是内核态中的XDP程序；</strong></p>
+<p>用户态程序通过 fill_ring 将可以用来承载报文的 UMEM frames 传到内核，然后内核消耗 fill_ring 中的元素（后文统一称为 desc），并将报文拷贝到desc中指定地址（该地址即UMEM frame的地址）；</p>
+<ol start="2">
+<li>COMPLETION RING</li>
+</ol>
+<p><strong>completion_ring 的生产者是XDP程序，消费者是用户态程序；</strong></p>
+<p>当内核完成XDP报文的发送，会通过 completion_ring 来通知用户态程序，哪些报文已经成功发送，然后用户态程序消耗 completion_ring 中 desc(只是更新consumer计数相当于确认)；</p>
+<ol start="3">
+<li>RX RING</li>
+</ol>
+<p><strong>rx_ring的生产者是XDP程序，消费者是用户态程序；</strong></p>
+<p>XDP程序消耗 fill_ring，获取可以承载报文的 desc并将报文拷贝到desc中指定的地址，然后将desc填充到 rx_ring 中，并通过socket IO机制通知用户态程序从 rx_ring 中接收报文；</p>
+<ol start="4">
+<li>TX RING</li>
+</ol>
+<p><strong>tx_ring的生产者是用户态程序，消费者是XDP程序；</strong></p>
+<p>用户态程序将要发送的报文拷贝 tx_ring 中 desc指定的地址中，然后 XDP程序 消耗 tx_ring 中的desc，将报文发送出去，并通过 completion_ring 将成功发送的报文的desc告诉用户态程序；</p>
+</blockquote>
+<h2 id="1-用户态程序">1. 用户态程序</h2>
+<h3 id="11-创建af_xdp的socket">1.1 创建AF_XDP的socket</h3>
+<pre><code>xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
+</code></pre>
+<p>这一步没什么好展开的。</p>
+<h3 id="12-为umem申请内存">1.2 为UMEM申请内存</h3>
+<p>上文提到UMEM是一块包含固定大小chunk的内存，我们可以通过malloc/mmap/hugepages申请。下文大部分代码出自kernel samples。</p>
+<pre><code>    bufs = mmap(NULL, NUM_FRAMES * opt_xsk_frame_size,
+                         PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS | opt_mmap_flags, -1, 0);
+    if (bufs == MAP_FAILED) {
+        printf(&quot;ERROR: mmap failed\n&quot;);
+        exit(EXIT_FAILURE);
+    }
+</code></pre>
+<h3 id="13-向af_xdp-socket注册umem">1.3 向AF_XDP socket注册UMEM</h3>
+<pre><code>        struct xdp_umem_reg mr;
+        memset(&amp;mr, 0, sizeof(mr));
+        mr.addr = (uintptr_t)umem_area; // umem_area即上面通过mmap申请到内存起始地址
+        mr.len = size;
+        mr.chunk_size = umem-&gt;config.frame_size;
+        mr.headroom = umem-&gt;config.frame_headroom;
+        mr.flags = umem-&gt;config.flags;
+
+        err = setsockopt(umem-&gt;fd, SOL_XDP, XDP_UMEM_REG, &amp;mr, sizeof(mr));
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+</code></pre>
+<p>其中xdp_umem_reg结构定义在 usr/include/linux/if_xdp.h中：</p>
+<pre><code>struct xdp_umem_reg {
+        __u64 addr; /* Start of packet data area */
+        __u64 len; /* Length of packet data area */
+        __u32 chunk_size;
+        __u32 headroom;
+        __u32 flags;
+};
+</code></pre>
+<p><strong>成员解析：</strong></p>
+<ul>
+<li>addr就是UMEM内存的起始地址；</li>
+<li>len是整个UMEM内存的总长度；</li>
+<li>chunk_size就是每个chunk的大小；</li>
+<li>headroom，如果设置了，那么报文数据将不是从每个chunk的起始地址开始存储，而是要预留出headroom大小的内存，再开始存储报文数据，headroom在隧道网络中非常常见，方便封装外层头部；</li>
+<li>flags, UMEM还有一些更复杂的用法，通过flag设置，后面再进一步展开；</li>
+</ul>
+<h3 id="14-创建fill-ring-和-completion-ring">1.4 创建FILL RING 和 COMPLETION RING</h3>
+<p>我们通过 setsockopt() 设置 FILL/COMPLETION/RX/TX ring的大小（在我看来这个过程相当于创建，不设置大小的ring是没有办法使用的）。</p>
+<p>FILL RING 和 COMPLETION RING是UMEM必须，RX和TX则是 AF_XDP socket二选一的，例如AF_XDP socket只收包那么只需要设置RX RING的大小即可。</p>
+<pre><code>        err = setsockopt(umem-&gt;fd, SOL_XDP, XDP_UMEM_FILL_RING,
+                         &amp;umem-&gt;config.fill_size,
+                         sizeof(umem-&gt;config.fill_size));
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+        err = setsockopt(umem-&gt;fd, SOL_XDP, XDP_UMEM_COMPLETION_RING,
+                         &amp;umem-&gt;config.comp_size,
+                         sizeof(umem-&gt;config.comp_size));
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+</code></pre>
+<p>上述操作相当于创建了 FILL RING 和 和 COMPLETION RING，创建ring的过程主要是初始化 producer 和 consumer 的下标，以及创建ring数组。</p>
+<p><strong>问题来了：</strong></p>
+<p>上文提到，用户态程序是 FILL RING 的生产者和 CONPLETION RING 的消费者，上面2个 ring 的创建是在内核中创建了 ring 并初始化了其相关成员。那么用户态程序如何操作这两个位于内核中的 ring 呢？所以接下来我们需要将整个 ring 映射到用户态空间。</p>
+<h3 id="15-将fill-ring-映射到用户态">1.5 将FILL RING 映射到用户态</h3>
+<p>第一步是获取内核中ring结构各成员的偏移，因为从5.4版本开始后，ring结构中除了 producer、consumer、desc外，又新增了一个flag成员。所以用户态程序需要先获取 ring 结构中各成员的准确便宜，才能在mmap() 之后准确识别内存中各成员位置。</p>
+<pre><code>        err = xsk_get_mmap_offsets(umem-&gt;fd, &amp;off);
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+</code></pre>
+<p>xsk_get_mmap_offsets() 函数主要是通过getsockopt函数实现这一功能：</p>
+<pre><code>        err = getsockopt(fd, SOL_XDP, XDP_MMAP_OFFSETS, off, &amp;optlen);
+        if (err)
+                return err;
+</code></pre>
+<p>一切就绪，开始将内核中的 FILL RING 映射到用户态程序中：</p>
+<pre><code>        map = mmap(NULL, off.fr.desc + umem-&gt;config.fill_size * sizeof(__u64),
+                   PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, umem-&gt;fd,
+                   XDP_UMEM_PGOFF_FILL_RING);
+        if (map == MAP_FAILED) {
+                err = -errno;
+                goto out_socket;
+        }
+
+        umem-&gt;fill = fill;
+        fill-&gt;mask = umem-&gt;config.fill_size - 1;
+        fill-&gt;size = umem-&gt;config.fill_size;
+        fill-&gt;producer = map + off.fr.producer;
+        fill-&gt;consumer = map + off.fr.consumer;
+        fill-&gt;flags = map + off.fr.flags;
+        fill-&gt;ring = map + off.fr.desc;
+        fill-&gt;cached_cons = umem-&gt;config.fill_size;
+</code></pre>
+<p>上面代码需要关注的一点是 mmap() 函数中指定内存的长度——<strong>off.fr.desc + umem-&gt;config.fill_size * sizeof(__u64)</strong>，umem-&gt;config.fill_size * sizeof(__u64)没什么好说的，就是ring数组的长度，而 off.fr.desc 则是ring结构体的长度，我们先看下内核中ring结构的定义：</p>
+<pre><code>struct xdp_ring_offset {
+        __u64 producer;
+        __u64 consumer;
+        __u64 desc;
+};
+</code></pre>
+<p>这是没有flag的定义，无伤大雅。这里desc的地址其实就是ring数组的起始地址了。而off.fr.desc是desc相对 ring 结构体起始地址的偏移，相当于结构体长度。我们用一张图来看下ring所在内存的结构分布：</p>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1614236273468.png" alt="enter description here" loading="lazy"></figure>
+<p>后面一堆赋值代码没什么好讲的，umem-&gt;fill 是用户态程序自定义的一个结构体，其成员 producer、consumer、flags、ring都是指针，分别指向实际ring结构中的对应成员，umem-&gt;fill中的其他成员主要在后面报文收发时用到，起辅助作用。</p>
+<h3 id="16-将completion-ring-映射到用户态">1.6 将COMPLETION RING 映射到用户态</h3>
+<p>跟上面 FILL RING 的映射一样，只贴代码好了：</p>
+<pre><code>        map = mmap(NULL, off.cr.desc + umem-&gt;config.comp_size * sizeof(__u64),
+                   PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, umem-&gt;fd,
+                   XDP_UMEM_PGOFF_COMPLETION_RING);
+        if (map == MAP_FAILED) {
+                err = -errno;
+                goto out_mmap;
+        }
+
+        umem-&gt;comp = comp;
+        comp-&gt;mask = umem-&gt;config.comp_size - 1;
+        comp-&gt;size = umem-&gt;config.comp_size;
+        comp-&gt;producer = map + off.cr.producer;
+        comp-&gt;consumer = map + off.cr.consumer;
+        comp-&gt;flags = map + off.cr.flags;
+        comp-&gt;ring = map + off.cr.desc;
+</code></pre>
+<h3 id="17-创建rx-ring和tx-ring然后mmap">1.7 创建RX RING和TX RING然后mmap</h3>
+<p>这里和 FILL RING 以及 COMPLETION RING的做法基本完全一致，只贴代码：</p>
+<pre><code>        if (rx) {
+                err = setsockopt(xsk-&gt;fd, SOL_XDP, XDP_RX_RING,
+                                 &amp;xsk-&gt;config.rx_size,
+                                 sizeof(xsk-&gt;config.rx_size));
+                if (err) {
+                        err = -errno;
+                        goto out_socket;
+                }
+        }
+        if (tx) {
+                err = setsockopt(xsk-&gt;fd, SOL_XDP, XDP_TX_RING,
+                                 &amp;xsk-&gt;config.tx_size,
+                                 sizeof(xsk-&gt;config.tx_size));
+                if (err) {
+                        err = -errno;
+                        goto out_socket;
+                }
+        }
+
+        err = xsk_get_mmap_offsets(xsk-&gt;fd, &amp;off);
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+
+        if (rx) {
+                rx_map = mmap(NULL, off.rx.desc +
+                              xsk-&gt;config.rx_size * sizeof(struct xdp_desc),
+                              PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+                              xsk-&gt;fd, XDP_PGOFF_RX_RING);
+                if (rx_map == MAP_FAILED) {
+                        err = -errno;
+                        goto out_socket;
+                }
+
+                rx-&gt;mask = xsk-&gt;config.rx_size - 1;
+                rx-&gt;size = xsk-&gt;config.rx_size;
+                rx-&gt;producer = rx_map + off.rx.producer;
+                rx-&gt;consumer = rx_map + off.rx.consumer;
+                rx-&gt;flags = rx_map + off.rx.flags;
+                rx-&gt;ring = rx_map + off.rx.desc;
+        }
+        xsk-&gt;rx = rx;
+
+        if (tx) {
+                tx_map = mmap(NULL, off.tx.desc +
+                              xsk-&gt;config.tx_size * sizeof(struct xdp_desc),
+                              PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+                              xsk-&gt;fd, XDP_PGOFF_TX_RING);
+                if (tx_map == MAP_FAILED) {
+                        err = -errno;
+                        goto out_mmap_rx;
+                }
+
+                tx-&gt;mask = xsk-&gt;config.tx_size - 1;
+                tx-&gt;size = xsk-&gt;config.tx_size;
+                tx-&gt;producer = tx_map + off.tx.producer;
+                tx-&gt;consumer = tx_map + off.tx.consumer;
+                tx-&gt;flags = tx_map + off.tx.flags;
+                tx-&gt;ring = tx_map + off.tx.desc;
+                tx-&gt;cached_cons = xsk-&gt;config.tx_size;
+        }
+        xsk-&gt;tx = tx;
+</code></pre>
+<h3 id="18-调用bind将af_xdp-socket绑定的指定设备的某一队列">1.8 调用bind()将AF_XDP socket绑定的指定设备的某一队列</h3>
+<pre><code>        sxdp.sxdp_family = PF_XDP;
+        sxdp.sxdp_ifindex = xsk-&gt;ifindex;
+        sxdp.sxdp_queue_id = xsk-&gt;queue_id;
+        sxdp.sxdp_flags = xsk-&gt;config.bind_flags;
+
+        err = bind(xsk-&gt;fd, (struct sockaddr *)&amp;sxdp, sizeof(sxdp));
+        if (err) {
+                err = -errno;
+                goto out_mmap_tx;
+        }
+</code></pre>
+<h2 id="2-内核态程序">2. 内核态程序</h2>
+<p>相比用户态程序的一堆操作，内核态XDP程序看起来要简单的多。</p>
+<p>在<a href="xdp1.md">XDP技术简介</a>我们曾介绍过，XDP程序利用 bpf_reditrct() 函数可以将报文重定向到其他设备发送出去或者重定向到其他CPU继续处理，后来又发展出了bpf_redirect_map()函数，可以将重定向的目的地保存在map中。AF_XDP 正是利用了 bpf_redirect_map() 函数以及 BPF_MAP_TYPE_XSKMAP 类型的 map 实现将报文重定向到用户态程序。</p>
+<h3 id="21-创建bpf_map_type_xskmap类型的map">2.1 创建BPF_MAP_TYPE_XSKMAP类型的map</h3>
+<p>该类型map的key是网口设备的queue_id，value则是该queue上绑定的AF_XDP socket fd，所以通常需要为每个网口设备各自创建独立的map，并在用户态将对应的queue_id-&gt;xsk_fd存储到map中。</p>
+<pre><code>static int xsk_create_bpf_maps(struct xsk_socket *xsk)
+{
+        int max_queues;
+        int fd;
+
+        max_queues = xsk_get_max_queues(xsk);
+        if (max_queues &lt; 0)
+                return max_queues;
+
+        fd = bpf_create_map_name(BPF_MAP_TYPE_XSKMAP, &quot;xsks_map&quot;,
+                                 sizeof(int), sizeof(int), max_queues, 0);
+        if (fd &lt; 0)
+                return fd;
+
+        xsk-&gt;xsks_map_fd = fd;
+
+        return 0;
+}
+</code></pre>
+<p>bpf_create_map_name参数详解：</p>
+<ul>
+<li>BPF_MAP_TYPE_XSKMAP，map类型</li>
+<li>&quot;xsks_map&quot;，map的名字</li>
+<li>sizeof(int)，分别指定key和vlue的size</li>
+<li>max_queues，map大小</li>
+<li>0, map_flags</li>
+</ul>
+<h3 id="22-xdp程序代码">2.2 XDP程序代码</h3>
+<pre><code>        /* This is the C-program:
+         * SEC(&quot;xdp_sock&quot;) int xdp_sock_prog(struct xdp_md *ctx)
+         * {
+         *     int index = ctx-&gt;rx_queue_index;
+         *
+         *     // A set entry here means that the correspnding queue_id
+         *     // has an active AF_XDP socket bound to it.
+         *     if (bpf_map_lookup_elem(&amp;xsks_map, &amp;index))
+         *         return bpf_redirect_map(&amp;xsks_map, index, 0);
+         *
+         *     return XDP_PASS;
+         * }
+         */
+</code></pre>
+<p>是不是非常的简单，真正的redirect操作只有一行代码。</p>
+<h3 id="23-xdp程序的加载">2.3 XDP程序的加载</h3>
+<pre><code>static int xsk_load_xdp_prog(struct xsk_socket *xsk)
+{
+        static const int log_buf_size = 16 * 1024;
+        char log_buf[log_buf_size];
+        int err, prog_fd;
+
+        /* This is the C-program:
+         * SEC(&quot;xdp_sock&quot;) int xdp_sock_prog(struct xdp_md *ctx)
+         * {
+         *     int index = ctx-&gt;rx_queue_index;
+         *
+         *     // A set entry here means that the correspnding queue_id
+         *     // has an active AF_XDP socket bound to it.
+         *     if (bpf_map_lookup_elem(&amp;xsks_map, &amp;index))
+         *         return bpf_redirect_map(&amp;xsks_map, index, 0);
+         *
+         *     return XDP_PASS;
+         * }
+         */
+        struct bpf_insn prog[] = {
+                /* r1 = *(u32 *)(r1 + 16) */
+                BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_1, 16),
+                /* *(u32 *)(r10 - 4) = r1 */
+                BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_1, -4),
+                BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+                BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
+                BPF_LD_MAP_FD(BPF_REG_1, xsk-&gt;xsks_map_fd),
+                BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
+                BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
+                BPF_MOV32_IMM(BPF_REG_0, 2),
+                /* if r1 == 0 goto +5 */
+                BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 5),
+                /* r2 = *(u32 *)(r10 - 4) */
+				                BPF_LD_MAP_FD(BPF_REG_1, xsk-&gt;xsks_map_fd),
+                BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_10, -4),
+                BPF_MOV32_IMM(BPF_REG_3, 0),
+                BPF_EMIT_CALL(BPF_FUNC_redirect_map),
+                /* The jumps are to this instruction */
+                BPF_EXIT_INSN(),
+        };
+        size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+
+        prog_fd = bpf_load_program(BPF_PROG_TYPE_XDP, prog, insns_cnt,
+                                   &quot;LGPL-2.1 or BSD-2-Clause&quot;, 0, log_buf,
+                                   log_buf_size);
+        if (prog_fd &lt; 0) {
+                pr_warning(&quot;BPF log buffer:\n%s&quot;, log_buf);
+                return prog_fd;
+        }
+
+        err = bpf_set_link_xdp_fd(xsk-&gt;ifindex, prog_fd, xsk-&gt;config.xdp_flags);
+        if (err) {
+                close(prog_fd);
+                return err;
+        }
+
+        xsk-&gt;prog_fd = prog_fd;
+        return 0;
+}
+</code></pre>
+<p><strong>XDP程序的load</strong></p>
+<p>调用函数 bpf_load_program() 之前的代码不用关心。通常 eBPF 程序使用 C 语言的一个子集（restricted C）编写，然后通过 LLVM 编译成字节码注入到内核执行。由于本例中XDP程序代码比较简单，功力深厚的作者直接将其编写为 eBPF（JIT）可识别的字节码，然后直接调用 bpf_load_program() 函数将字节码程序加载到内核中。</p>
+<p><strong>XDP程序的attach</strong></p>
+<p>XDP程序加载成功会返回对应的fd（后面统称为prog_fd），但是此时XDP程序还不会被执行（所有的eBPF都需要经过load和attach两步才能被触发执行，load只是将程序加载到内核中，attach将程序添加到hook点后，程序才能真正被触发执行）。我们调用函数 bpf_set_link_xdp_fd() 函数将XDP程序attach到指定网口设备的驱动中的hook点。</p>
+<blockquote>
+<p><strong>注意：</strong> AF_XDP socket是跟指定网口设备的队列绑定，而XDP程序则是跟指定的网口设备绑定（attach）。</p>
+</blockquote>
+<h2 id="3-回到用户态让程序run起来">3. 回到用户态，让程序run起来</h2>
+<p>经过前面两步，AF_XDP socket、UMEM、FILL/COMPLETION/RX/TX RING 都创建设置好了，XSKMAP 和XDP PROG 也都加载好了。但是要想让XDP程序把报文传到用户态程序，我们还得再进行两补操作。</p>
+<h3 id="31-将af_xdp-socket存储到xskmap中">3.1 将AF_XDP socket存储到XSKMAP中</h3>
+<p>前面介绍XSKMAP的时候，大家应该都想到这一步了，所以只贴代码不说话：</p>
+<pre><code>static int xsk_set_bpf_maps(struct xsk_socket *xsk)
+{
+        return bpf_map_update_elem(xsk-&gt;xsks_map_fd, &amp;xsk-&gt;queue_id,
+                                   &amp;xsk-&gt;fd, 0);
+}
+</code></pre>
+<h3 id="32-标题先卖个关子">3.2 标题先卖个关子</h3>
+<p>前面我们介绍过4种ring，分别对应收发包两个场景（收包：FILL/RX ring，发包：TX/COMPLETION RING）,我画个图分别描述一下收发包场景。</p>
+<h4 id="321-先看收包">3.2.1 先看收包</h4>
+<p><img src="https://rexrock.github.io/post-images/1614242674670.png" alt="收包" loading="lazy"><br>
+收包过程是由XDP程序触发的，但是XDP程序收包，需要依赖用户态程序填充FILL RING，将可以承载报文的desc告诉XDP程序。所以在用户态程序初始化阶段，我们需要先填充FILL RING，直接看代码：</p>
+<pre><code>        ret = xsk_ring_prod__reserve(&amp;xsk-&gt;umem-&gt;fq,
+                                     XSK_RING_PROD__DEFAULT_NUM_DESCS,
+                                     &amp;idx);
+        if (ret != XSK_RING_PROD__DEFAULT_NUM_DESCS)
+                exit_with_error(-ret);
+        for (i = 0; i &lt; XSK_RING_PROD__DEFAULT_NUM_DESCS; i++)
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx++) =
+                        i * opt_xsk_frame_size;
+        xsk_ring_prod__submit(&amp;xsk-&gt;umem-&gt;fq,
+                              XSK_RING_PROD__DEFAULT_NUM_DESCS);
+</code></pre>
+<p>三个经过封装的函数，看起来不明觉厉，咱们一个一个看：</p>
+<p><strong>1. xsk_ring_prod__reserve</strong></p>
+<pre><code>static inline size_t xsk_ring_prod__reserve(struct xsk_ring_prod *prod,
+                                            size_t nb, __u32 *idx)
+{
+        if (xsk_prod_nb_free(prod, nb) &lt; nb)
+                return 0;
+
+        *idx = prod-&gt;cached_prod;
+        prod-&gt;cached_prod += nb;
+
+        return nb;
+}
+</code></pre>
+<p>这个函数前面先判断一下：我现在想生产nb个数据，ring里有没有足够的地方放啊？没有的话直接退出，等会再试试。</p>
+<blockquote>
+<p>vhostuser里再这块有个BUG，前端程序想发包发现ring里空间不够了，而后端驱动处理又由于有有问题的判断，导致报文已发的报文一直不被处理，结果造成死锁，以后别的文章中再介绍吧。</p>
+</blockquote>
+<p>如果有足够的空间，那么会将生产者当前下标（cached_prog）赋值给idx，因为退出函数后会根据从这个idx指向的位置开始生产desc，最后cached_prod + nb。</p>
+<p><strong>为什么要有个cached_prog呢？</strong></p>
+<p>因为生产数据这个过程需要分几步完成，所以这个东西应该为了多线程同步吧。</p>
+<p><strong>2. xsk_ring_prod__fill_addr</strong></p>
+<pre><code>static inline __u64 *xsk_ring_prod__fill_addr(struct xsk_ring_prod *fill,
+                                              __u32 idx)
+{
+        __u64 *addrs = (__u64 *)fill-&gt;ring;
+
+        return &amp;addrs[idx &amp; fill-&gt;mask];
+}
+</code></pre>
+<p>看这段代码前，我们先看下ring中元素xdp_desc的成员结构：</p>
+<pre><code>struct xdp_desc {
+        __u64 addr;
+        __u32 len;
+        __u32 options;
+};
+</code></pre>
+<p><strong>成员解析</strong></p>
+<ul>
+<li>addr指向UMEM中某个帧的具体位置，并且不是真正的虚拟内存地址，而是相对UMEM内存起始地址的偏移。</li>
+<li>len则是指报文的具体的长度，当XDP程序向desc填充报文的时候需要设置len，但是用户态程序向FILL RING中填充desc则不用关心len。</li>
+</ul>
+<p>所以上面xsk_ring_prod__fill_addr的功能就好理解了，返回的ring中下标为idx处的desc中addr的指针；并且在函数返回后对addr进行了赋值，再看下这块代码，可以看到赋值给addr是个偏移量：</p>
+<pre><code>        for (i = 0; i &lt; XSK_RING_PROD__DEFAULT_NUM_DESCS; i++)
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx++) =
+                        i * opt_xsk_frame_size;
+</code></pre>
+<ol start="3">
+<li>xsk_ring_prod__submit</li>
+</ol>
+<pre><code>static inline void xsk_ring_prod__submit(struct xsk_ring_prod *prod, size_t nb)
+{
+        /* Make sure everything has been written to the ring before indicating
+         * this to the kernel by writing the producer pointer.
+         */
+        libbpf_smp_wmb();
+
+        *prod-&gt;producer += nb;
+}
+</code></pre>
+<p>数据填充完毕，更新生产者下标。</p>
+<blockquote>
+<p>说明：下标永远指向下一个可填充数据位置。</p>
+</blockquote>
+<h4 id="322-再看发包">3.2.2 再看发包</h4>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1614243219906.png" alt="发包" loading="lazy"></figure>
+<p>发包真的没啥好说的。初始化的时候不用管，想发包的时候直接就发啦。</p>
+<h2 id="4-收包流程解析">4. 收包流程解析</h2>
+<p><img src="https://rexrock.github.io/post-images/1614242674670.png" alt="收包" loading="lazy"><br>
+AF_XDP socket毕竟也是socket，所以select/poll/epoll这些函数都能用的，怎么用这里不介绍了。</p>
+<p>我们只看具体从一个AF_XDP socket收包的过程:</p>
+<pre><code>static void rx_drop(struct xsk_socket_info *xsk, struct pollfd *fds)
+{
+        unsigned int rcvd, i;
+        u32 idx_rx = 0, idx_fq = 0;
+        int ret;
+
+        rcvd = xsk_ring_cons__peek(&amp;xsk-&gt;rx, BATCH_SIZE, &amp;idx_rx);
+        if (!rcvd) {
+                if (xsk_ring_prod__needs_wakeup(&amp;xsk-&gt;umem-&gt;fq))
+                        ret = poll(fds, num_socks, opt_timeout);
+                return;
+        }
+
+        ret = xsk_ring_prod__reserve(&amp;xsk-&gt;umem-&gt;fq, rcvd, &amp;idx_fq);
+        while (ret != rcvd) {
+                if (ret &lt; 0)
+                        exit_with_error(-ret);
+                if (xsk_ring_prod__needs_wakeup(&amp;xsk-&gt;umem-&gt;fq))
+                        ret = poll(fds, num_socks, opt_timeout);
+                ret = xsk_ring_prod__reserve(&amp;xsk-&gt;umem-&gt;fq, rcvd, &amp;idx_fq);
+        }
+
+        for (i = 0; i &lt; rcvd; i++) {
+                u64 addr = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx)-&gt;addr;
+                u32 len = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx++)-&gt;len;
+                u64 orig = xsk_umem__extract_addr(addr);
+
+                addr = xsk_umem__add_offset_to_addr(addr);
+                char *pkt = xsk_umem__get_data(xsk-&gt;umem-&gt;buffer, addr);
+
+                hex_dump(pkt, len, addr);
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx_fq++) = orig;
+        }
+
+        xsk_ring_prod__submit(&amp;xsk-&gt;umem-&gt;fq, rcvd);
+        xsk_ring_cons__release(&amp;xsk-&gt;rx, rcvd);
+        xsk-&gt;rx_npkts += rcvd;
+}
+</code></pre>
+<p>该函数并没有对报文做什么复杂处理，只是hex_dump了一下，整个收发包分五个步骤：</p>
+<p><strong>1. xsk_ring_cons__peek()</strong></p>
+<p>开始对RX RING进行消费，返回消费者下标和消费个数，并累加cached_cons；</p>
+<p><strong>2. xsk_ring_prod__reserve</strong></p>
+<p>开始对FILL RING进行生产，返回生产者下标和生产个数，并累加cached_prod;</p>
+<p><strong>3. 报文处理</strong></p>
+<p>处理从RX RING中收到的报文，并回填到FILL RING中；</p>
+<pre><code>        for (i = 0; i &lt; rcvd; i++) {
+                u64 addr = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx)-&gt;addr;
+                u32 len = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx++)-&gt;len;
+                u64 orig = xsk_umem__extract_addr(addr);
+
+                addr = xsk_umem__add_offset_to_addr(addr);
+                char *pkt = xsk_umem__get_data(xsk-&gt;umem-&gt;buffer, addr);
+
+                hex_dump(pkt, len, addr);
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx_fq++) = orig;
+        }
+</code></pre>
+<p>从desc中读取addr，并通过 xsk_umem__get_data() 函数得到报文真正的虚拟地址，然后 hex_dump()下。</p>
+<pre><code>static inline void *xsk_umem__get_data(void *umem_area, __u64 addr)
+{
+        return &amp;((char *)umem_area)[addr];
+}
+</code></pre>
+<p>然后将处理完报文所在的 UMEM 帧回填到FILL RING中：</p>
+<pre><code>*xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx_fq++) = orig;
+</code></pre>
+<p><strong>4. xsk_ring_prod__submit(&amp;xsk-&gt;umem-&gt;fq, rcvd)</strong></p>
+<p>完成对RX RING的消费，更新消费者下标；</p>
+<p><strong>5. xsk_ring_cons__release(&amp;xsk-&gt;rx, rcvd)</strong></p>
+<p>完成对FILL RING的生产，更新生产者下标；</p>
+<h2 id="5-结语">5. 结语</h2>
+<p>关于AF_XDP的使用及背后原理暂且分析到这，目前AF_XDP已经在ovs、dpdk、cilium中应用，相应的文档下面有链接。如有错误纰漏，欢迎大家拍砖。</p>
+<p><strong>相关代码均出自kernel：</strong></p>
+<pre><code>samples/bpf/xdpsock_user.c
+tools/lib/bpf/xsk.c
+tools/lib/bpf/xsk.h
+net/xdp/xsk.c
+net/xdp/xsk.h
+usr/include/linux/if_xdp.h
+</code></pre>
+<p><strong>相关参考文档如下：</strong></p>
+<p><a href="https://www.kernel.org/doc/html/latest/networking/af_xdp.html">Kernel document for AF_XDP</a></p>
+<p><a href="https://man7.org/linux/man-pages/man7/bpf-helpers.7.html">Man for bpf</a></p>
+<p><a href="https://docs.openvswitch.org/en/latest/intro/install/afxdp/">Openvswitch and XDP</a></p>
+<p><a href="http://doc.dpdk.org/guides/nics/af_xdp.html">DPDK and XDP</a></p>
+<p><a href="https://www.dpdk.org/wp-content/uploads/sites/35/2019/07/14-AF_XDP-dpdk-summit-china-2019.pdf">性能对比</a></p>
+<p><a href="https://cloud.tencent.com/developer/article/1644458">编译内核源码中的示例代码</a></p>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/k8s3/" class="post-title gt-a-link">
+                    使用istio + servicemesh搭建服务网格
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

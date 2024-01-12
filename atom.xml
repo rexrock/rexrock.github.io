@@ -1,0 +1,1467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://rexrock.github.io</id>
+    <title>REXROCK</title>
+    <updated>2024-01-12T03:32:13.911Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://rexrock.github.io"/>
+    <link rel="self" href="https://rexrock.github.io/atom.xml"/>
+    <subtitle>每天进步一点点</subtitle>
+    <logo>https://rexrock.github.io/images/avatar.png</logo>
+    <icon>https://rexrock.github.io/favicon.ico</icon>
+    <rights>All rights reserved 2024, REXROCK</rights>
+    <entry>
+        <title type="html"><![CDATA[‘OVN实践’]]></title>
+        <id>https://rexrock.github.io/post/ovn1/</id>
+        <link href="https://rexrock.github.io/post/ovn1/">
+        </link>
+        <updated>2022-03-09T02:21:00.000Z</updated>
+        <content type="html"><![CDATA[<p>部署：https://www.jianshu.com/p/9619751f757a<br>
+源码：https://gobomb.github.io/post/learning-k8s-networking-reading-ovn-kubernetes-source/</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[DELL服务器升级82599网卡固件版本]]></title>
+        <id>https://rexrock.github.io/post/82599/</id>
+        <link href="https://rexrock.github.io/post/82599/">
+        </link>
+        <updated>2021-07-05T04:31:00.000Z</updated>
+        <content type="html"><![CDATA[<p>最近在一批比较老的服务器上部署了vhostuser类型的虚拟机，虚拟机创建后发现无法对外通信，经排查发现物理网卡未能成功执行offload操作，发出报文的inner_tcp_csum是错的，导致被对端或网关丢包。初步怀疑是网卡固件版本太低导致。</p>
+<p>网卡固件跟网卡驱动不太一样，OEM厂商通常都会自己定制固件，而且一种网卡对应多个型号，每个型号的固件版本通常都不一样。</p>
+<p>首先通过lspci -vvv发现网卡是DELL的板载卡：<br>
+<img src="https://rexrock.github.io/post-images/1625469262421.png" alt="enter description here" loading="lazy"><br>
+查看服务器具体型号：<br>
+<img src="https://rexrock.github.io/post-images/1625469502665.png" alt="enter description here" loading="lazy"><br>
+登录官网下载：<br>
+https://www.dell.com/support/home/zh-cn/product-support/product/poweredge-r730/drivers<br>
+<img src="https://rexrock.github.io/post-images/1625469525167.png" alt="enter description here" loading="lazy"><br>
+下载之后是个.BIN文件，直接执行即可。<br>
+<img src="https://rexrock.github.io/post-images/1625469584689.png" alt="enter description here" loading="lazy"><br>
+报错提示无法获取设备内存信息，需要升级驱动，那么去Intel官网下载最新驱动：<br>
+https://downloadcenter.intel.com/product/32609/Intel-82599-10-Gigabit-Ethernet-Controller<br>
+然后编译、打包、安装：</p>
+<pre><code>rpmbuild -tb ixgbe-5.11.3.tar.gz
+rpm -ivh ixgbe-5.11.3-1.x86_64.rpm
+</code></pre>
+<p>重新执行.bin文件升级成功，重启——问题解决。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[linux系统备份恢复]]></title>
+        <id>https://rexrock.github.io/post/linux1/</id>
+        <link href="https://rexrock.github.io/post/linux1/">
+        </link>
+        <updated>2021-06-18T02:31:00.000Z</updated>
+        <content type="html"><![CDATA[<p>参考：https://help.ubuntu.com/community/BackupYourSystem/TAR</p>
+<h2 id="1-备份">1. 备份</h2>
+<p>没什么好讲的，就是打个tar包</p>
+<pre><code>cd / # THIS CD IS IMPORTANT THE FOLLOWING LONG COMMAND IS RUN FROM /
+tar -cvpzf backup.tar.gz \
+--exclude=/backup.tar.gz \
+--exclude=/proc \
+--exclude=/tmp \
+--exclude=/mnt \
+--exclude=/dev \
+--exclude=/sys \
+--exclude=/run \ 
+--exclude=/media \ 
+--exclude=/var/log \
+--exclude=/var/cache/apt/archives \
+--exclude=/usr/src/linux-headers* \ 
+--exclude=/home/*/.gvfs \
+--exclude=/home/*/.cache \ 
+</code></pre>
+<h2 id="2-恢复">2. 恢复</h2>
+<p>一开始想的是完全恢复，即找一块独立的磁盘，分区+格式化，然后将tar包解压，重启后BIOS选择从该磁盘启动，先看一下步骤：</p>
+<ol>
+<li>
+<p>分区+格式化+mount：<br>
+具体步骤略过，可以完全模仿原系统的分区，也可以自定义分区（需要改grub.conf中vmlinux和initrd的加载路路径）<br>
+三步完成后，需要为新磁盘安装grub</p>
+<pre><code>grub2-install /dev/sdx
+</code></pre>
+</li>
+<li>
+<p>解压：</p>
+<pre><code>tar -xvpzf backup.tar.gz -C /media/ --numeric-owner
+</code></pre>
+<p>解压后需要根据分区调整文件位置，之后需要创建一些没有打包过来的临时目录</p>
+<pre><code>mkdir /proc /sys /mnt /media # 不全，自己看缺啥目录就创建啥目录
+</code></pre>
+</li>
+<li>
+<p>grub恢复</p>
+<pre><code>for f in dev dev/pts proc ; do mount --bind /$f /media/whatever/$f ; done
+chroot /media/whatever
+grub-mkconfig -o /boot/grub/grub.cfg 
+# ubuntu/debian下的命令是 dpkg-reconfigure grub-pc
+</code></pre>
+</li>
+<li>
+<p>结果<br>
+从新磁盘启动后，发现从老的initrd启动，无法加载系统分区，即/dev/目录下看不到sda sdb这些设备；<br>
+然后重新启动，chroot到新磁盘，重新安装内核，然后再重新拉起，分区倒是都加载了，但是initrd启动还是有问题，过去太久具体记不起来了；注意chroot到新磁盘安装内核，需要mount一些目录，具体那些请根据错误提示操作：</p>
+<pre><code>mount -t proc proc /media/proc/
+</code></pre>
+</li>
+<li>
+<p>最终解决<br>
+最后的解决方法是，安装一个同版本系统，然后只将我们打包的内容作为根文件系统分区才解决。</p>
+</li>
+</ol>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[制作RPM包]]></title>
+        <id>https://rexrock.github.io/post/rpm1/</id>
+        <link href="https://rexrock.github.io/post/rpm1/">
+        </link>
+        <updated>2021-06-18T01:31:00.000Z</updated>
+        <content type="html"><![CDATA[<p>参考：https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html-single/rpm_packaging_guide/index</p>
+<h2 id="1-安装必要的工具">1. 安装必要的工具</h2>
+<pre><code>yum install @'Development Tools' rpm-build yum-utils
+</code></pre>
+<h2 id="2-创建编译目录">2. 创建编译目录</h2>
+<pre><code>rpmdev-setuptree
+</code></pre>
+<p>编译目录路径为${home}/rpmbuild/，目录结构如下：<br>
+.<br>
+├── BUILD，编译目录<br>
+├── RPMS，rpm包存放目录<br>
+├── SOURCES，源码包存放目录<br>
+├── SPECS，spec文件存放目录<br>
+└── SRPMS，src.rpm存放目录</p>
+<h3 id="3-创建spec文件">3. 创建spec文件</h3>
+<p>本文为shell脚本创建rpm包，没有源码编译这一步，直接看spec文件：</p>
+<pre><code># 指定rpmbuild工作目录，可以不指定，默认就是${home}/rpmbuild/
+BuildRoot:     /root/rpmrebuild
+# 指定架构依赖，由于是脚本，所以是noarch，还可以是x86_64/arm等，如果不是noarch可以不指定，rpmbuild会自动检测并设置
+BuildArch:     noarch
+# rpm包的名称
+Name:         hello-test
+# rpm包的版本
+Version:       1.0.0
+# rpm包的发行号，即当前版本第n次的发行
+Release:       1_11
+License:       GPLv3+
+Group:         Unspecified
+Summary:       Hello test
+
+%description
+Just test for build rpm package
+
+%install
+# 下面执行的其实都是shell命令了，工作目录为${home}/rpmbuild/BUILD/，
+# 所以说我们需要将待安装的文件放在${home}/rpmbuild/BUILD/目录下,然后
+# 执行下面的命令将文件安装到%{buildroot}目录下，%{buildroot}是自动创
+# 建的目录，通常这个目录是${home}/rpmbuild/BUILDROOT/${Name}-${Version}-${Release}.${BuildArch}
+mkdir -p %{buildroot}/etc/hello-test/
+install -m 0755 test.sh %{buildroot}/etc/hello-test/test.sh
+install -m 0644 test.conf %{buildroot}/etc/hello-test/test.conf
+
+%files
+# 安装文件列表，并定义每个文件的属性
+%defattr(644,root,root,755)
+%attr(755,root,root) /etc/hello-test/test.sh
+%config(noreplace) %attr(0644, root, root) &quot;/etc/hello-test/test.conf&quot;
+</code></pre>
+<h2 id="4-执行rpmbuild开始打包">4. 执行rpmbuild开始打包</h2>
+<pre><code>rpmbuild -ba hello-test.spec
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[AF_XDP VS DPDK]]></title>
+        <id>https://rexrock.github.io/post/af_xdp2/</id>
+        <link href="https://rexrock.github.io/post/af_xdp2/">
+        </link>
+        <updated>2021-03-03T04:32:00.000Z</updated>
+        <content type="html"><![CDATA[<p>目前 ovs、dpdk、cilium均对 AF_XDP 做了支持，这是否预示在高性能报文转发方面 AF_XDP未来将成为DPDK外又一重要技术分支？加之AF_XDP跟内核更好的配合，随着技术不断程序，AF_XDP是否会全面超越甚至取代DPDK成为高性能报文转发的首选？未来不得而知，但至少从目前看，AF_XDP性能上仍不及DPDK，下面通过一个简单的测试来具体看一下。</p>
+<blockquote>
+<p>说明：本次测试，AF_XDP时NATIVE模式，而不是NATIVE_WITH_ZEROCOPY模式，在CX5网卡上 ZEROCOPY开启失败，看来需要网卡的支持，后续再调试解决吧。不开启zerocopy，根据以往测试经验性能可能会有20%-30%的下降。</p>
+</blockquote>
+<h2 id="1-测试拓扑">1. 测试拓扑</h2>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1614651821455.png" alt="enter description here" loading="lazy"></figure>
+<h2 id="2-软件版本">2. 软件版本</h2>
+<p>OVS-2.12 + DPDK-20.11 + KERNEL-5.4.87，具体要求及ovs编译配置参考：<br>
+<a href="https://docs.openvswitch.org/en/latest/intro/install/afxdp/?highlight=native-with-zerocopy#setup-af-xdp-netdev">Open vSwitch with AF_XDP</a></p>
+<h2 id="3-ovs配置">3. OVS配置</h2>
+<p><strong>OVS编译：</strong></p>
+<pre><code>./configure --prefix=/usr/ --enable-afxdp --with-dpdk --with-debug CFLAGS=&quot;-O3&quot;
+make &amp;&amp; make install
+</code></pre>
+<p><strong>OVS初始化及网络配置：</strong></p>
+<pre><code class="language-javascript">/usr/bin/ovs-vsctl --no-wait set Open_vSwitch . other_config:pmd-cpu-mask=0x550
+
+init_dpdk() {
+ovs-vsctl set Open_vSwitch . other_config:dpdk-init=true
+/usr/bin/ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-socket-mem=2048,0
+/usr/bin/ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-extra=&quot;-a 0000:5e:00.0,txq_inline=128,txqs_min_inline=4,txq_mpw_en=0 -a 0000:5e:00.0,txq_inline=128,txqs_min_inline=4,txq_mpw_en=0&quot;
+}
+
+add_xdp_port () {
+    ovs-vsctl -- add-br br0 \
+          -- set Bridge br0 datapath_type=netdev
+    ovs-vsctl add-port br0 ens2f0 \
+          -- set interface ens2f0 type=&quot;afxdp&quot; options:xdp-mode=native-with-zerocopy options:n_rxq=4 other_config:pmd-rxq-affinity=&quot;0:4,1:6,2:8,3:10&quot;
+    ovs-vsctl add-port br0 ens2f1 \
+          -- set interface ens2f1 type=&quot;afxdp&quot; options:xdp-mode=native-with-zerocopy options:n_rxq=4 other_config:pmd-rxq-affinity=&quot;0:4,1:6,2:8,3:10&quot;
+}
+
+add_dpdk_port() {
+    ovs-vsctl --may-exist add-br br0 \
+          -- set Bridge br0 datapath_type=netdev \
+          -- br-set-external-id br0 bridge-id br0 \
+          -- set bridge br0 fail-mode=secure
+
+    ovs-vsctl --timeout 10 add-port br0 ens2f0 \
+              -- set Interface ens2f0 type=dpdk options:dpdk-devargs=0000:5e:00.0 options:n_rxq=4 other_config:pmd-rxq-affinity=&quot;0:4,1:6,2:8,3:10&quot;
+
+
+    ovs-vsctl --timeout 10 add-port br0 ens2f1 \
+              -- set Interface ens2f1 type=dpdk options:dpdk-devargs=0000:5e:00.1 options:n_rxq=4 other_config:pmd-rxq-affinity=&quot;0:4,1:6,2:8,3:10&quot;
+}
+
+#init_dpdk
+#sleep 1
+#add_dpdk_port
+add_xdp_port
+</code></pre>
+<p><strong>OVS流表配置：</strong></p>
+<pre><code class="language-javascript">ovs-ofctl del-flows br0
+
+ovs-ofctl add-flow br0 table=0,priority=0,action=normal
+
+ovs-ofctl add-flow br0 table=1,priority=0,action=normal
+
+ovs-ofctl add-flow br0 table=0,priority=20,ip,dl_src=b8:59:9f:41:0e:d6,in_port=ens2f0,action=load:0-\&gt;NXM_OF_IN_PORT[],goto_table:1
+
+ovs-ofctl add-flow br0 table=0,priority=20,ip,dl_src=b8:59:9f:41:0e:d7,in_port=ens2f1,action=load:0-\&gt;NXM_OF_IN_PORT[],goto_table:1
+
+ovs-ofctl add-flow br0 table=1,priority=20,ip,nw_dst=172.10.1.1,action=set_field:b8:59:9f:41:11:8e-\&gt;eth_src,set_field:b8:59:9f:41:0e:d6-\&gt;eth_dst,output:ens2f0
+
+ovs-ofctl add-flow br0 table=1,priority=20,ip,nw_dst=172.10.2.1,action=set_field:b8:59:9f:41:11:8f-\&gt;eth_src,set_field:b8:59:9f:41:0e:d7-\&gt;eth_dst,output:ens2f1
+</code></pre>
+<h2 id="4-node配置">4. NODE配置</h2>
+<pre><code class="language-javascript">ip netns add net1
+ip netns add net2
+sleep 1
+ip link set ens2f0 netns net1
+ip link set ens2f1 netns net2
+sleep 1
+ip netns exec net1 ifconfig ens2f0 172.10.1.1/24 up
+ip netns exec net2 ifconfig ens2f1 172.10.2.1/24 up
+ip netns exec net1 route add -net 172.10.2.0/24 gw 172.10.1.2 dev ens2f0
+ip netns exec net2 route add -net 172.10.1.0/24 gw 172.10.2.2 dev ens2f1
+</code></pre>
+<h2 id="5-测试结果">5. 测试结果</h2>
+<h3 id="51-throughput">5.1 Throughput</h3>
+<p>单口25G网卡，带宽AF_XDP和DPDK两种场景下带宽都能够打满：</p>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1614652578603.png" alt="Throughput" loading="lazy"></figure>
+<p>我们主要看下，相同带宽下，各自的PMD使用率：</p>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1614652639030.png" alt="AF_XDP" loading="lazy"></figure>
+<figure data-type="image" tabindex="4"><img src="https://rexrock.github.io/post-images/1614652664832.png" alt="DPDK" loading="lazy"></figure>
+<p>很明显，DPDK PMD使用率更低，并且hash的更均匀；</p>
+<h3 id="52-pps">5.2 PPS</h3>
+<p>AF_XDP：327W pps<br>
+DPDK：1400W pps</p>
+<p>并且各自峰值的情况下，PMD使用率DPDK仍是全面占优：</p>
+<figure data-type="image" tabindex="5"><img src="https://rexrock.github.io/post-images/1614652872603.png" alt="AF_XDP" loading="lazy"></figure>
+<figure data-type="image" tabindex="6"><img src="https://rexrock.github.io/post-images/1614652884076.png" alt="DPDK" loading="lazy"></figure>
+<h3 id="53-latency">5.3 Latency</h3>
+<pre><code class="language-javascript">netperf -t TCP_RR -H 172.10.2.1 -l 30 -- -r 1B,1B -O  &quot;MAX_LATENCY,MEAN_LATENCY,P90_LATENCY,P99_LATENCY,P999_LATENCY,P9999_LATENCY,STDDEV_LATENCY,THROUGHPUT,THROUGHPUT_UNITS&quot;
+</code></pre>
+<figure data-type="image" tabindex="7"><img src="https://rexrock.github.io/post-images/1614653034804.png" alt="TCP_RR" loading="lazy"></figure>
+<pre><code>netperf -t TCP_CRR -H 172.10.2.1 -l 30 -- -r 1B,1B -O  &quot;MAX_LATENCY,MEAN_LATENCY,P90_LATENCY,P99_LATENCY,P999_LATENCY,P9999_LATENCY,STDDEV_LATENCY,THROUGHPUT,THROUGHPUT_UNITS&quot;
+</code></pre>
+<figure data-type="image" tabindex="8"><img src="https://rexrock.github.io/post-images/1614653168657.png" alt="TCP_CRR" loading="lazy"></figure>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[AF_XDP技术详解]]></title>
+        <id>https://rexrock.github.io/post/af_xdp1/</id>
+        <link href="https://rexrock.github.io/post/af_xdp1/">
+        </link>
+        <updated>2021-03-03T04:31:00.000Z</updated>
+        <content type="html"><![CDATA[<p>AF_XDP是一个协议族（例如AF_NET），主要用于高性能报文处理。</p>
+<p>前文<a href="xdp1.md">XDP技术简介</a>中提到过，通过XDP_REDIRECT我们可以将报文重定向到其他设备发送出去或者重定向到其他的CPU继续进行处理。而AF_XDP则利用 bpf_redirect_map()函数，实现将报文重定向到用户态一块指定的内存中，接下来我们看一下这到底是如何做到的。</p>
+<p>我们使用普通的 socket() 系统调用创建一个AF_XDP套接字（XSK）。每个XSK都有两个ring：RX RING 和 TX RING。套接字可以在 RX RING 上接收数据包，并且可以在 TX RING 环上发送数据包。这些环分别通过 setockopts() 的 XDP_RX_RING 和 XDP_TX_RING 进行注册和调整大小。每个 socket 必须至少有一个这样的环。RX或TX描述符环指向存储区域（称为UMEM）中的数据缓冲区。RX和TX可以共享同一UMEM，因此不必在RX和TX之间复制数据包。</p>
+<p>UMEM也有两个 ring：FILL RING 和 COMPLETION RING。应用程序使用 FILL RING 向内核发送可以承载报文的 addr (该 addr 指向UMEM中某个chunk)，以供内核填充RX数据包数据。每当收到数据包，对这些 chunks 的引用就会出现在RX环中。另一方面，COMPLETION RING包含内核已完全传输的 chunks 地址，可以由用户空间再次用于 TX 或 RX。</p>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1614584458041.png" alt="enter description here" loading="lazy"></figure>
+<blockquote>
+<p>关于ring，熟悉dpdk的同学应该都不陌生，这里只做简单介绍。ring就是一个固定长度的数组，并且同时拥有一个生产者和一个消费者，生产者向数组中逐个填写数据，消费者从数组中逐个读取生产者填充的数据，生产者和消费者都用数组的下标表示，不断累加，像一个环一样不断重复生产然后消费的动作，因此得名ring。<br>
+<img src="https://rexrock.github.io/post-images/1614166502357.png" alt="enter description here" loading="lazy"></p>
+</blockquote>
+<blockquote>
+<p>此外需要注意的事，AF_XDP socket不再通过 send()/recv()等函数实现报文收发，而实通过直接操作ring来实现报文收发。</p>
+<ol>
+<li>FILL RING</li>
+</ol>
+<p><strong>fill_ring 的生产者是用户态程序，消费者是内核态中的XDP程序；</strong></p>
+<p>用户态程序通过 fill_ring 将可以用来承载报文的 UMEM frames 传到内核，然后内核消耗 fill_ring 中的元素（后文统一称为 desc），并将报文拷贝到desc中指定地址（该地址即UMEM frame的地址）；</p>
+<ol start="2">
+<li>COMPLETION RING</li>
+</ol>
+<p><strong>completion_ring 的生产者是XDP程序，消费者是用户态程序；</strong></p>
+<p>当内核完成XDP报文的发送，会通过 completion_ring 来通知用户态程序，哪些报文已经成功发送，然后用户态程序消耗 completion_ring 中 desc(只是更新consumer计数相当于确认)；</p>
+<ol start="3">
+<li>RX RING</li>
+</ol>
+<p><strong>rx_ring的生产者是XDP程序，消费者是用户态程序；</strong></p>
+<p>XDP程序消耗 fill_ring，获取可以承载报文的 desc并将报文拷贝到desc中指定的地址，然后将desc填充到 rx_ring 中，并通过socket IO机制通知用户态程序从 rx_ring 中接收报文；</p>
+<ol start="4">
+<li>TX RING</li>
+</ol>
+<p><strong>tx_ring的生产者是用户态程序，消费者是XDP程序；</strong></p>
+<p>用户态程序将要发送的报文拷贝 tx_ring 中 desc指定的地址中，然后 XDP程序 消耗 tx_ring 中的desc，将报文发送出去，并通过 completion_ring 将成功发送的报文的desc告诉用户态程序；</p>
+</blockquote>
+<h2 id="1-用户态程序">1. 用户态程序</h2>
+<h3 id="11-创建af_xdp的socket">1.1 创建AF_XDP的socket</h3>
+<pre><code>xsk_fd = socket(AF_XDP, SOCK_RAW, 0);
+</code></pre>
+<p>这一步没什么好展开的。</p>
+<h3 id="12-为umem申请内存">1.2 为UMEM申请内存</h3>
+<p>上文提到UMEM是一块包含固定大小chunk的内存，我们可以通过malloc/mmap/hugepages申请。下文大部分代码出自kernel samples。</p>
+<pre><code>    bufs = mmap(NULL, NUM_FRAMES * opt_xsk_frame_size,
+                         PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS | opt_mmap_flags, -1, 0);
+    if (bufs == MAP_FAILED) {
+        printf(&quot;ERROR: mmap failed\n&quot;);
+        exit(EXIT_FAILURE);
+    }
+</code></pre>
+<h3 id="13-向af_xdp-socket注册umem">1.3 向AF_XDP socket注册UMEM</h3>
+<pre><code>        struct xdp_umem_reg mr;
+        memset(&amp;mr, 0, sizeof(mr));
+        mr.addr = (uintptr_t)umem_area; // umem_area即上面通过mmap申请到内存起始地址
+        mr.len = size;
+        mr.chunk_size = umem-&gt;config.frame_size;
+        mr.headroom = umem-&gt;config.frame_headroom;
+        mr.flags = umem-&gt;config.flags;
+
+        err = setsockopt(umem-&gt;fd, SOL_XDP, XDP_UMEM_REG, &amp;mr, sizeof(mr));
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+</code></pre>
+<p>其中xdp_umem_reg结构定义在 usr/include/linux/if_xdp.h中：</p>
+<pre><code>struct xdp_umem_reg {
+        __u64 addr; /* Start of packet data area */
+        __u64 len; /* Length of packet data area */
+        __u32 chunk_size;
+        __u32 headroom;
+        __u32 flags;
+};
+</code></pre>
+<p><strong>成员解析：</strong></p>
+<ul>
+<li>addr就是UMEM内存的起始地址；</li>
+<li>len是整个UMEM内存的总长度；</li>
+<li>chunk_size就是每个chunk的大小；</li>
+<li>headroom，如果设置了，那么报文数据将不是从每个chunk的起始地址开始存储，而是要预留出headroom大小的内存，再开始存储报文数据，headroom在隧道网络中非常常见，方便封装外层头部；</li>
+<li>flags, UMEM还有一些更复杂的用法，通过flag设置，后面再进一步展开；</li>
+</ul>
+<h3 id="14-创建fill-ring-和-completion-ring">1.4 创建FILL RING 和 COMPLETION RING</h3>
+<p>我们通过 setsockopt() 设置 FILL/COMPLETION/RX/TX ring的大小（在我看来这个过程相当于创建，不设置大小的ring是没有办法使用的）。</p>
+<p>FILL RING 和 COMPLETION RING是UMEM必须，RX和TX则是 AF_XDP socket二选一的，例如AF_XDP socket只收包那么只需要设置RX RING的大小即可。</p>
+<pre><code>        err = setsockopt(umem-&gt;fd, SOL_XDP, XDP_UMEM_FILL_RING,
+                         &amp;umem-&gt;config.fill_size,
+                         sizeof(umem-&gt;config.fill_size));
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+        err = setsockopt(umem-&gt;fd, SOL_XDP, XDP_UMEM_COMPLETION_RING,
+                         &amp;umem-&gt;config.comp_size,
+                         sizeof(umem-&gt;config.comp_size));
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+</code></pre>
+<p>上述操作相当于创建了 FILL RING 和 和 COMPLETION RING，创建ring的过程主要是初始化 producer 和 consumer 的下标，以及创建ring数组。</p>
+<p><strong>问题来了：</strong></p>
+<p>上文提到，用户态程序是 FILL RING 的生产者和 CONPLETION RING 的消费者，上面2个 ring 的创建是在内核中创建了 ring 并初始化了其相关成员。那么用户态程序如何操作这两个位于内核中的 ring 呢？所以接下来我们需要将整个 ring 映射到用户态空间。</p>
+<h3 id="15-将fill-ring-映射到用户态">1.5 将FILL RING 映射到用户态</h3>
+<p>第一步是获取内核中ring结构各成员的偏移，因为从5.4版本开始后，ring结构中除了 producer、consumer、desc外，又新增了一个flag成员。所以用户态程序需要先获取 ring 结构中各成员的准确便宜，才能在mmap() 之后准确识别内存中各成员位置。</p>
+<pre><code>        err = xsk_get_mmap_offsets(umem-&gt;fd, &amp;off);
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+</code></pre>
+<p>xsk_get_mmap_offsets() 函数主要是通过getsockopt函数实现这一功能：</p>
+<pre><code>        err = getsockopt(fd, SOL_XDP, XDP_MMAP_OFFSETS, off, &amp;optlen);
+        if (err)
+                return err;
+</code></pre>
+<p>一切就绪，开始将内核中的 FILL RING 映射到用户态程序中：</p>
+<pre><code>        map = mmap(NULL, off.fr.desc + umem-&gt;config.fill_size * sizeof(__u64),
+                   PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, umem-&gt;fd,
+                   XDP_UMEM_PGOFF_FILL_RING);
+        if (map == MAP_FAILED) {
+                err = -errno;
+                goto out_socket;
+        }
+
+        umem-&gt;fill = fill;
+        fill-&gt;mask = umem-&gt;config.fill_size - 1;
+        fill-&gt;size = umem-&gt;config.fill_size;
+        fill-&gt;producer = map + off.fr.producer;
+        fill-&gt;consumer = map + off.fr.consumer;
+        fill-&gt;flags = map + off.fr.flags;
+        fill-&gt;ring = map + off.fr.desc;
+        fill-&gt;cached_cons = umem-&gt;config.fill_size;
+</code></pre>
+<p>上面代码需要关注的一点是 mmap() 函数中指定内存的长度——<strong>off.fr.desc + umem-&gt;config.fill_size * sizeof(__u64)</strong>，umem-&gt;config.fill_size * sizeof(__u64)没什么好说的，就是ring数组的长度，而 off.fr.desc 则是ring结构体的长度，我们先看下内核中ring结构的定义：</p>
+<pre><code>struct xdp_ring_offset {
+        __u64 producer;
+        __u64 consumer;
+        __u64 desc;
+};
+</code></pre>
+<p>这是没有flag的定义，无伤大雅。这里desc的地址其实就是ring数组的起始地址了。而off.fr.desc是desc相对 ring 结构体起始地址的偏移，相当于结构体长度。我们用一张图来看下ring所在内存的结构分布：</p>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1614236273468.png" alt="enter description here" loading="lazy"></figure>
+<p>后面一堆赋值代码没什么好讲的，umem-&gt;fill 是用户态程序自定义的一个结构体，其成员 producer、consumer、flags、ring都是指针，分别指向实际ring结构中的对应成员，umem-&gt;fill中的其他成员主要在后面报文收发时用到，起辅助作用。</p>
+<h3 id="16-将completion-ring-映射到用户态">1.6 将COMPLETION RING 映射到用户态</h3>
+<p>跟上面 FILL RING 的映射一样，只贴代码好了：</p>
+<pre><code>        map = mmap(NULL, off.cr.desc + umem-&gt;config.comp_size * sizeof(__u64),
+                   PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, umem-&gt;fd,
+                   XDP_UMEM_PGOFF_COMPLETION_RING);
+        if (map == MAP_FAILED) {
+                err = -errno;
+                goto out_mmap;
+        }
+
+        umem-&gt;comp = comp;
+        comp-&gt;mask = umem-&gt;config.comp_size - 1;
+        comp-&gt;size = umem-&gt;config.comp_size;
+        comp-&gt;producer = map + off.cr.producer;
+        comp-&gt;consumer = map + off.cr.consumer;
+        comp-&gt;flags = map + off.cr.flags;
+        comp-&gt;ring = map + off.cr.desc;
+</code></pre>
+<h3 id="17-创建rx-ring和tx-ring然后mmap">1.7 创建RX RING和TX RING然后mmap</h3>
+<p>这里和 FILL RING 以及 COMPLETION RING的做法基本完全一致，只贴代码：</p>
+<pre><code>        if (rx) {
+                err = setsockopt(xsk-&gt;fd, SOL_XDP, XDP_RX_RING,
+                                 &amp;xsk-&gt;config.rx_size,
+                                 sizeof(xsk-&gt;config.rx_size));
+                if (err) {
+                        err = -errno;
+                        goto out_socket;
+                }
+        }
+        if (tx) {
+                err = setsockopt(xsk-&gt;fd, SOL_XDP, XDP_TX_RING,
+                                 &amp;xsk-&gt;config.tx_size,
+                                 sizeof(xsk-&gt;config.tx_size));
+                if (err) {
+                        err = -errno;
+                        goto out_socket;
+                }
+        }
+
+        err = xsk_get_mmap_offsets(xsk-&gt;fd, &amp;off);
+        if (err) {
+                err = -errno;
+                goto out_socket;
+        }
+
+        if (rx) {
+                rx_map = mmap(NULL, off.rx.desc +
+                              xsk-&gt;config.rx_size * sizeof(struct xdp_desc),
+                              PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+                              xsk-&gt;fd, XDP_PGOFF_RX_RING);
+                if (rx_map == MAP_FAILED) {
+                        err = -errno;
+                        goto out_socket;
+                }
+
+                rx-&gt;mask = xsk-&gt;config.rx_size - 1;
+                rx-&gt;size = xsk-&gt;config.rx_size;
+                rx-&gt;producer = rx_map + off.rx.producer;
+                rx-&gt;consumer = rx_map + off.rx.consumer;
+                rx-&gt;flags = rx_map + off.rx.flags;
+                rx-&gt;ring = rx_map + off.rx.desc;
+        }
+        xsk-&gt;rx = rx;
+
+        if (tx) {
+                tx_map = mmap(NULL, off.tx.desc +
+                              xsk-&gt;config.tx_size * sizeof(struct xdp_desc),
+                              PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+                              xsk-&gt;fd, XDP_PGOFF_TX_RING);
+                if (tx_map == MAP_FAILED) {
+                        err = -errno;
+                        goto out_mmap_rx;
+                }
+
+                tx-&gt;mask = xsk-&gt;config.tx_size - 1;
+                tx-&gt;size = xsk-&gt;config.tx_size;
+                tx-&gt;producer = tx_map + off.tx.producer;
+                tx-&gt;consumer = tx_map + off.tx.consumer;
+                tx-&gt;flags = tx_map + off.tx.flags;
+                tx-&gt;ring = tx_map + off.tx.desc;
+                tx-&gt;cached_cons = xsk-&gt;config.tx_size;
+        }
+        xsk-&gt;tx = tx;
+</code></pre>
+<h3 id="18-调用bind将af_xdp-socket绑定的指定设备的某一队列">1.8 调用bind()将AF_XDP socket绑定的指定设备的某一队列</h3>
+<pre><code>        sxdp.sxdp_family = PF_XDP;
+        sxdp.sxdp_ifindex = xsk-&gt;ifindex;
+        sxdp.sxdp_queue_id = xsk-&gt;queue_id;
+        sxdp.sxdp_flags = xsk-&gt;config.bind_flags;
+
+        err = bind(xsk-&gt;fd, (struct sockaddr *)&amp;sxdp, sizeof(sxdp));
+        if (err) {
+                err = -errno;
+                goto out_mmap_tx;
+        }
+</code></pre>
+<h2 id="2-内核态程序">2. 内核态程序</h2>
+<p>相比用户态程序的一堆操作，内核态XDP程序看起来要简单的多。</p>
+<p>在<a href="xdp1.md">XDP技术简介</a>我们曾介绍过，XDP程序利用 bpf_reditrct() 函数可以将报文重定向到其他设备发送出去或者重定向到其他CPU继续处理，后来又发展出了bpf_redirect_map()函数，可以将重定向的目的地保存在map中。AF_XDP 正是利用了 bpf_redirect_map() 函数以及 BPF_MAP_TYPE_XSKMAP 类型的 map 实现将报文重定向到用户态程序。</p>
+<h3 id="21-创建bpf_map_type_xskmap类型的map">2.1 创建BPF_MAP_TYPE_XSKMAP类型的map</h3>
+<p>该类型map的key是网口设备的queue_id，value则是该queue上绑定的AF_XDP socket fd，所以通常需要为每个网口设备各自创建独立的map，并在用户态将对应的queue_id-&gt;xsk_fd存储到map中。</p>
+<pre><code>static int xsk_create_bpf_maps(struct xsk_socket *xsk)
+{
+        int max_queues;
+        int fd;
+
+        max_queues = xsk_get_max_queues(xsk);
+        if (max_queues &lt; 0)
+                return max_queues;
+
+        fd = bpf_create_map_name(BPF_MAP_TYPE_XSKMAP, &quot;xsks_map&quot;,
+                                 sizeof(int), sizeof(int), max_queues, 0);
+        if (fd &lt; 0)
+                return fd;
+
+        xsk-&gt;xsks_map_fd = fd;
+
+        return 0;
+}
+</code></pre>
+<p>bpf_create_map_name参数详解：</p>
+<ul>
+<li>BPF_MAP_TYPE_XSKMAP，map类型</li>
+<li>&quot;xsks_map&quot;，map的名字</li>
+<li>sizeof(int)，分别指定key和vlue的size</li>
+<li>max_queues，map大小</li>
+<li>0, map_flags</li>
+</ul>
+<h3 id="22-xdp程序代码">2.2 XDP程序代码</h3>
+<pre><code>        /* This is the C-program:
+         * SEC(&quot;xdp_sock&quot;) int xdp_sock_prog(struct xdp_md *ctx)
+         * {
+         *     int index = ctx-&gt;rx_queue_index;
+         *
+         *     // A set entry here means that the correspnding queue_id
+         *     // has an active AF_XDP socket bound to it.
+         *     if (bpf_map_lookup_elem(&amp;xsks_map, &amp;index))
+         *         return bpf_redirect_map(&amp;xsks_map, index, 0);
+         *
+         *     return XDP_PASS;
+         * }
+         */
+</code></pre>
+<p>是不是非常的简单，真正的redirect操作只有一行代码。</p>
+<h3 id="23-xdp程序的加载">2.3 XDP程序的加载</h3>
+<pre><code>static int xsk_load_xdp_prog(struct xsk_socket *xsk)
+{
+        static const int log_buf_size = 16 * 1024;
+        char log_buf[log_buf_size];
+        int err, prog_fd;
+
+        /* This is the C-program:
+         * SEC(&quot;xdp_sock&quot;) int xdp_sock_prog(struct xdp_md *ctx)
+         * {
+         *     int index = ctx-&gt;rx_queue_index;
+         *
+         *     // A set entry here means that the correspnding queue_id
+         *     // has an active AF_XDP socket bound to it.
+         *     if (bpf_map_lookup_elem(&amp;xsks_map, &amp;index))
+         *         return bpf_redirect_map(&amp;xsks_map, index, 0);
+         *
+         *     return XDP_PASS;
+         * }
+         */
+        struct bpf_insn prog[] = {
+                /* r1 = *(u32 *)(r1 + 16) */
+                BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_1, 16),
+                /* *(u32 *)(r10 - 4) = r1 */
+                BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_1, -4),
+                BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+                BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
+                BPF_LD_MAP_FD(BPF_REG_1, xsk-&gt;xsks_map_fd),
+                BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
+                BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
+                BPF_MOV32_IMM(BPF_REG_0, 2),
+                /* if r1 == 0 goto +5 */
+                BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 5),
+                /* r2 = *(u32 *)(r10 - 4) */
+				                BPF_LD_MAP_FD(BPF_REG_1, xsk-&gt;xsks_map_fd),
+                BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_10, -4),
+                BPF_MOV32_IMM(BPF_REG_3, 0),
+                BPF_EMIT_CALL(BPF_FUNC_redirect_map),
+                /* The jumps are to this instruction */
+                BPF_EXIT_INSN(),
+        };
+        size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+
+        prog_fd = bpf_load_program(BPF_PROG_TYPE_XDP, prog, insns_cnt,
+                                   &quot;LGPL-2.1 or BSD-2-Clause&quot;, 0, log_buf,
+                                   log_buf_size);
+        if (prog_fd &lt; 0) {
+                pr_warning(&quot;BPF log buffer:\n%s&quot;, log_buf);
+                return prog_fd;
+        }
+
+        err = bpf_set_link_xdp_fd(xsk-&gt;ifindex, prog_fd, xsk-&gt;config.xdp_flags);
+        if (err) {
+                close(prog_fd);
+                return err;
+        }
+
+        xsk-&gt;prog_fd = prog_fd;
+        return 0;
+}
+</code></pre>
+<p><strong>XDP程序的load</strong></p>
+<p>调用函数 bpf_load_program() 之前的代码不用关心。通常 eBPF 程序使用 C 语言的一个子集（restricted C）编写，然后通过 LLVM 编译成字节码注入到内核执行。由于本例中XDP程序代码比较简单，功力深厚的作者直接将其编写为 eBPF（JIT）可识别的字节码，然后直接调用 bpf_load_program() 函数将字节码程序加载到内核中。</p>
+<p><strong>XDP程序的attach</strong></p>
+<p>XDP程序加载成功会返回对应的fd（后面统称为prog_fd），但是此时XDP程序还不会被执行（所有的eBPF都需要经过load和attach两步才能被触发执行，load只是将程序加载到内核中，attach将程序添加到hook点后，程序才能真正被触发执行）。我们调用函数 bpf_set_link_xdp_fd() 函数将XDP程序attach到指定网口设备的驱动中的hook点。</p>
+<blockquote>
+<p><strong>注意：</strong> AF_XDP socket是跟指定网口设备的队列绑定，而XDP程序则是跟指定的网口设备绑定（attach）。</p>
+</blockquote>
+<h2 id="3-回到用户态让程序run起来">3. 回到用户态，让程序run起来</h2>
+<p>经过前面两步，AF_XDP socket、UMEM、FILL/COMPLETION/RX/TX RING 都创建设置好了，XSKMAP 和XDP PROG 也都加载好了。但是要想让XDP程序把报文传到用户态程序，我们还得再进行两补操作。</p>
+<h3 id="31-将af_xdp-socket存储到xskmap中">3.1 将AF_XDP socket存储到XSKMAP中</h3>
+<p>前面介绍XSKMAP的时候，大家应该都想到这一步了，所以只贴代码不说话：</p>
+<pre><code>static int xsk_set_bpf_maps(struct xsk_socket *xsk)
+{
+        return bpf_map_update_elem(xsk-&gt;xsks_map_fd, &amp;xsk-&gt;queue_id,
+                                   &amp;xsk-&gt;fd, 0);
+}
+</code></pre>
+<h3 id="32-标题先卖个关子">3.2 标题先卖个关子</h3>
+<p>前面我们介绍过4种ring，分别对应收发包两个场景（收包：FILL/RX ring，发包：TX/COMPLETION RING）,我画个图分别描述一下收发包场景。</p>
+<h4 id="321-先看收包">3.2.1 先看收包</h4>
+<p><img src="https://rexrock.github.io/post-images/1614242674670.png" alt="收包" loading="lazy"><br>
+收包过程是由XDP程序触发的，但是XDP程序收包，需要依赖用户态程序填充FILL RING，将可以承载报文的desc告诉XDP程序。所以在用户态程序初始化阶段，我们需要先填充FILL RING，直接看代码：</p>
+<pre><code>        ret = xsk_ring_prod__reserve(&amp;xsk-&gt;umem-&gt;fq,
+                                     XSK_RING_PROD__DEFAULT_NUM_DESCS,
+                                     &amp;idx);
+        if (ret != XSK_RING_PROD__DEFAULT_NUM_DESCS)
+                exit_with_error(-ret);
+        for (i = 0; i &lt; XSK_RING_PROD__DEFAULT_NUM_DESCS; i++)
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx++) =
+                        i * opt_xsk_frame_size;
+        xsk_ring_prod__submit(&amp;xsk-&gt;umem-&gt;fq,
+                              XSK_RING_PROD__DEFAULT_NUM_DESCS);
+</code></pre>
+<p>三个经过封装的函数，看起来不明觉厉，咱们一个一个看：</p>
+<p><strong>1. xsk_ring_prod__reserve</strong></p>
+<pre><code>static inline size_t xsk_ring_prod__reserve(struct xsk_ring_prod *prod,
+                                            size_t nb, __u32 *idx)
+{
+        if (xsk_prod_nb_free(prod, nb) &lt; nb)
+                return 0;
+
+        *idx = prod-&gt;cached_prod;
+        prod-&gt;cached_prod += nb;
+
+        return nb;
+}
+</code></pre>
+<p>这个函数前面先判断一下：我现在想生产nb个数据，ring里有没有足够的地方放啊？没有的话直接退出，等会再试试。</p>
+<blockquote>
+<p>vhostuser里再这块有个BUG，前端程序想发包发现ring里空间不够了，而后端驱动处理又由于有有问题的判断，导致报文已发的报文一直不被处理，结果造成死锁，以后别的文章中再介绍吧。</p>
+</blockquote>
+<p>如果有足够的空间，那么会将生产者当前下标（cached_prog）赋值给idx，因为退出函数后会根据从这个idx指向的位置开始生产desc，最后cached_prod + nb。</p>
+<p><strong>为什么要有个cached_prog呢？</strong></p>
+<p>因为生产数据这个过程需要分几步完成，所以这个东西应该为了多线程同步吧。</p>
+<p><strong>2. xsk_ring_prod__fill_addr</strong></p>
+<pre><code>static inline __u64 *xsk_ring_prod__fill_addr(struct xsk_ring_prod *fill,
+                                              __u32 idx)
+{
+        __u64 *addrs = (__u64 *)fill-&gt;ring;
+
+        return &amp;addrs[idx &amp; fill-&gt;mask];
+}
+</code></pre>
+<p>看这段代码前，我们先看下ring中元素xdp_desc的成员结构：</p>
+<pre><code>struct xdp_desc {
+        __u64 addr;
+        __u32 len;
+        __u32 options;
+};
+</code></pre>
+<p><strong>成员解析</strong></p>
+<ul>
+<li>addr指向UMEM中某个帧的具体位置，并且不是真正的虚拟内存地址，而是相对UMEM内存起始地址的偏移。</li>
+<li>len则是指报文的具体的长度，当XDP程序向desc填充报文的时候需要设置len，但是用户态程序向FILL RING中填充desc则不用关心len。</li>
+</ul>
+<p>所以上面xsk_ring_prod__fill_addr的功能就好理解了，返回的ring中下标为idx处的desc中addr的指针；并且在函数返回后对addr进行了赋值，再看下这块代码，可以看到赋值给addr是个偏移量：</p>
+<pre><code>        for (i = 0; i &lt; XSK_RING_PROD__DEFAULT_NUM_DESCS; i++)
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx++) =
+                        i * opt_xsk_frame_size;
+</code></pre>
+<ol start="3">
+<li>xsk_ring_prod__submit</li>
+</ol>
+<pre><code>static inline void xsk_ring_prod__submit(struct xsk_ring_prod *prod, size_t nb)
+{
+        /* Make sure everything has been written to the ring before indicating
+         * this to the kernel by writing the producer pointer.
+         */
+        libbpf_smp_wmb();
+
+        *prod-&gt;producer += nb;
+}
+</code></pre>
+<p>数据填充完毕，更新生产者下标。</p>
+<blockquote>
+<p>说明：下标永远指向下一个可填充数据位置。</p>
+</blockquote>
+<h4 id="322-再看发包">3.2.2 再看发包</h4>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1614243219906.png" alt="发包" loading="lazy"></figure>
+<p>发包真的没啥好说的。初始化的时候不用管，想发包的时候直接就发啦。</p>
+<h2 id="4-收包流程解析">4. 收包流程解析</h2>
+<p><img src="https://rexrock.github.io/post-images/1614242674670.png" alt="收包" loading="lazy"><br>
+AF_XDP socket毕竟也是socket，所以select/poll/epoll这些函数都能用的，怎么用这里不介绍了。</p>
+<p>我们只看具体从一个AF_XDP socket收包的过程:</p>
+<pre><code>static void rx_drop(struct xsk_socket_info *xsk, struct pollfd *fds)
+{
+        unsigned int rcvd, i;
+        u32 idx_rx = 0, idx_fq = 0;
+        int ret;
+
+        rcvd = xsk_ring_cons__peek(&amp;xsk-&gt;rx, BATCH_SIZE, &amp;idx_rx);
+        if (!rcvd) {
+                if (xsk_ring_prod__needs_wakeup(&amp;xsk-&gt;umem-&gt;fq))
+                        ret = poll(fds, num_socks, opt_timeout);
+                return;
+        }
+
+        ret = xsk_ring_prod__reserve(&amp;xsk-&gt;umem-&gt;fq, rcvd, &amp;idx_fq);
+        while (ret != rcvd) {
+                if (ret &lt; 0)
+                        exit_with_error(-ret);
+                if (xsk_ring_prod__needs_wakeup(&amp;xsk-&gt;umem-&gt;fq))
+                        ret = poll(fds, num_socks, opt_timeout);
+                ret = xsk_ring_prod__reserve(&amp;xsk-&gt;umem-&gt;fq, rcvd, &amp;idx_fq);
+        }
+
+        for (i = 0; i &lt; rcvd; i++) {
+                u64 addr = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx)-&gt;addr;
+                u32 len = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx++)-&gt;len;
+                u64 orig = xsk_umem__extract_addr(addr);
+
+                addr = xsk_umem__add_offset_to_addr(addr);
+                char *pkt = xsk_umem__get_data(xsk-&gt;umem-&gt;buffer, addr);
+
+                hex_dump(pkt, len, addr);
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx_fq++) = orig;
+        }
+
+        xsk_ring_prod__submit(&amp;xsk-&gt;umem-&gt;fq, rcvd);
+        xsk_ring_cons__release(&amp;xsk-&gt;rx, rcvd);
+        xsk-&gt;rx_npkts += rcvd;
+}
+</code></pre>
+<p>该函数并没有对报文做什么复杂处理，只是hex_dump了一下，整个收发包分五个步骤：</p>
+<p><strong>1. xsk_ring_cons__peek()</strong></p>
+<p>开始对RX RING进行消费，返回消费者下标和消费个数，并累加cached_cons；</p>
+<p><strong>2. xsk_ring_prod__reserve</strong></p>
+<p>开始对FILL RING进行生产，返回生产者下标和生产个数，并累加cached_prod;</p>
+<p><strong>3. 报文处理</strong></p>
+<p>处理从RX RING中收到的报文，并回填到FILL RING中；</p>
+<pre><code>        for (i = 0; i &lt; rcvd; i++) {
+                u64 addr = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx)-&gt;addr;
+                u32 len = xsk_ring_cons__rx_desc(&amp;xsk-&gt;rx, idx_rx++)-&gt;len;
+                u64 orig = xsk_umem__extract_addr(addr);
+
+                addr = xsk_umem__add_offset_to_addr(addr);
+                char *pkt = xsk_umem__get_data(xsk-&gt;umem-&gt;buffer, addr);
+
+                hex_dump(pkt, len, addr);
+                *xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx_fq++) = orig;
+        }
+</code></pre>
+<p>从desc中读取addr，并通过 xsk_umem__get_data() 函数得到报文真正的虚拟地址，然后 hex_dump()下。</p>
+<pre><code>static inline void *xsk_umem__get_data(void *umem_area, __u64 addr)
+{
+        return &amp;((char *)umem_area)[addr];
+}
+</code></pre>
+<p>然后将处理完报文所在的 UMEM 帧回填到FILL RING中：</p>
+<pre><code>*xsk_ring_prod__fill_addr(&amp;xsk-&gt;umem-&gt;fq, idx_fq++) = orig;
+</code></pre>
+<p><strong>4. xsk_ring_prod__submit(&amp;xsk-&gt;umem-&gt;fq, rcvd)</strong></p>
+<p>完成对RX RING的消费，更新消费者下标；</p>
+<p><strong>5. xsk_ring_cons__release(&amp;xsk-&gt;rx, rcvd)</strong></p>
+<p>完成对FILL RING的生产，更新生产者下标；</p>
+<h2 id="5-结语">5. 结语</h2>
+<p>关于AF_XDP的使用及背后原理暂且分析到这，目前AF_XDP已经在ovs、dpdk、cilium中应用，相应的文档下面有链接。如有错误纰漏，欢迎大家拍砖。</p>
+<p><strong>相关代码均出自kernel：</strong></p>
+<pre><code>samples/bpf/xdpsock_user.c
+tools/lib/bpf/xsk.c
+tools/lib/bpf/xsk.h
+net/xdp/xsk.c
+net/xdp/xsk.h
+usr/include/linux/if_xdp.h
+</code></pre>
+<p><strong>相关参考文档如下：</strong></p>
+<p><a href="https://www.kernel.org/doc/html/latest/networking/af_xdp.html">Kernel document for AF_XDP</a></p>
+<p><a href="https://man7.org/linux/man-pages/man7/bpf-helpers.7.html">Man for bpf</a></p>
+<p><a href="https://docs.openvswitch.org/en/latest/intro/install/afxdp/">Openvswitch and XDP</a></p>
+<p><a href="http://doc.dpdk.org/guides/nics/af_xdp.html">DPDK and XDP</a></p>
+<p><a href="https://www.dpdk.org/wp-content/uploads/sites/35/2019/07/14-AF_XDP-dpdk-summit-china-2019.pdf">性能对比</a></p>
+<p><a href="https://cloud.tencent.com/developer/article/1644458">编译内核源码中的示例代码</a></p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[使用istio + servicemesh搭建服务网格]]></title>
+        <id>https://rexrock.github.io/post/k8s3/</id>
+        <link href="https://rexrock.github.io/post/k8s3/">
+        </link>
+        <updated>2021-03-03T03:33:00.000Z</updated>
+        <content type="html"><![CDATA[<p>官方文档：</p>
+<p><a href="https://istio.io/latest/zh/docs/setup/getting-started/">https://istio.io/latest/zh/docs/setup/getting-started/</a></p>
+<h2 id="1-下载istio安装包">1. 下载istio安装包</h2>
+<p><a href="https://github.com/istio/istio/releases/tag/1.7.0">https://github.com/istio/istio/releases/tag/1.7.0</a></p>
+<h2 id="2-通过istioctl安装">2. 通过istioctl安装</h2>
+<p><a href="https://istio.io/latest/docs/setup/additional-setup/config-profiles/">Profile说明</a></p>
+<pre><code>istioctl install
+</code></pre>
+<h2 id="3-sidecar注入">3. Sidecar注入</h2>
+<p>官方文档<br>
+<a href="https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/">https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/</a></p>
+<h3 id="31-手动注入">3.1 手动注入</h3>
+<pre><code>istioctl kube-inject -f samples/sleep/sleep.yaml | kubectl apply -f -
+</code></pre>
+<p>命令istioctl kube-inject会将创建sidecar需要的配置插入到sleep.yaml得配置中</p>
+<h3 id="32-自动注入">3.2 自动注入</h3>
+<pre><code>kubectl label namespaces &lt;nsName&gt; istio-injection=enabled
+</code></pre>
+<p>这样在namespace nsName 中创建得pod会被自动注入sidecar</p>
+<h3 id="33-自动注入不生效怎么办">3.3 自动注入不生效怎么办</h3>
+<p><strong>原因一：准入控制器相关问题</strong></p>
+<p>参考：</p>
+<p><a href="https://istio.io/latest/zh/docs/ops/configuration/mesh/webhook/">https://istio.io/latest/zh/docs/ops/configuration/mesh/webhook/</a></p>
+<p>Istio 使用 ValidatingAdmissionWebhooks 验证 Istio 配置，使用 MutatingAdmissionWebhooks 自动将 Sidecar 代理注入至用户 Pod。</p>
+<pre><code># a) 首先判断当前使用的apiserver默认会开启哪些准入控制器（admission controllers）
+kube-apiserver -h | grep enable-admission-plugins
+# b) 如果没有ValidatingAdmissionWebhooks和MutatingAdmissionWebhooks，则需修改apiserver启动参数开启
+# 编辑/etc/kubernetes/manifests/kube-apiserver.yaml修改如下，然后重建
+# --enable-admission-plugins=NodeRestriction,ValidatingAdmissionWebhooks,MutatingAdmissionWebhooks
+# c) 如果已开启，那么需要确认名为istio-sidecar-injector的webhook是否存在
+kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io
+# d) 如果不存在，说明istio部署有问题，如果存在还不生效，需要看一下istio-sidecar-injector的配置
+kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io istio-sidecar-injector -o yaml
+# e) 主要查看matchLabels字段，可以自动注入的labek并不是istio-injection=enabled
+</code></pre>
+<h2 id="4-开启both-sidecar">4. 开启both sidecar</h2>
+<p>为接收端配置containerPort即可开启both sidecar，可以对比下开启both sidecar前后iptables的差别：</p>
+<pre><code>--- iptables.1  2020-09-09 17:56:26.452129512 +0800
++++ iptables.2  2020-09-09 17:56:18.308026728 +0800
+@@ -1,5 +1,6 @@
+ Chain PREROUTING (policy ACCEPT)
+ target     prot opt source               destination
+# 首先在PREROUTING链这里将所有的流量导向ISTIO_INBOUND
++ISTIO_INBOUND  tcp  --  0.0.0.0/0            0.0.0.0/0
+
+ Chain INPUT (policy ACCEPT)
+ target     prot opt source               destination
+@@ -11,7 +12,11 @@
+ Chain POSTROUTING (policy ACCEPT)
+ target     prot opt source               destination
+
+-Chain ISTIO_IN_REDIRECT (1 references)
++Chain ISTIO_INBOUND (1 references)
++target     prot opt source               destination
+# 然后在ISTIO_INBOUND中将访问containerPort端口的流量导向ISTIO_IN_REDIRECT
+# ISTIO_IN_REDIRECT和ISTIO_REDIRECT规则一样，都是将流量重定向到本地15001端口
++ISTIO_IN_REDIRECT  tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8088
++
++Chain ISTIO_IN_REDIRECT (2 references)
+ target     prot opt source               destination
+ REDIRECT   tcp  --  0.0.0.0/0            0.0.0.0/0            redir ports 15001
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[使用kubebuilder创建CRD及Controller]]></title>
+        <id>https://rexrock.github.io/post/k8s2/</id>
+        <link href="https://rexrock.github.io/post/k8s2/">
+        </link>
+        <updated>2021-03-03T03:32:00.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="1-安装kubebuilder">1. 安装kubebuilder</h2>
+<p>建议源码安装更容易些：</p>
+<pre><code>git clone https://github.com/kubernetes-sigs/kubebuilder.git
+cd kubebuilder/
+make install
+./bin/kubebuilder version
+</code></pre>
+<p>将./bin/kubebuilde拷贝到可执行路径</p>
+<h2 id="2-使用kubebuilder创建crd及controller">2. 使用kubebuilder创建CRD及Controller</h2>
+<p>官方参考文档：</p>
+<p><a href="https://book-v1.book.kubebuilder.io/quick_start.html">https://book-v1.book.kubebuilder.io/quick_start.html</a></p>
+<p>其他参考文档：</p>
+<p><a href="https://www.cnblogs.com/alisystemsoftware/p/11580202.html">https://www.cnblogs.com/alisystemsoftware/p/11580202.html</a></p>
+<p><a href="https://blog.csdn.net/qianggezhishen/article/details/106995181">https://blog.csdn.net/qianggezhishen/article/details/106995181</a></p>
+<h3 id="21-准备工作">2.1 准备工作</h3>
+<pre><code>mkdir -p testProject/src/testController
+cd testProject/
+export PATH=$PATH:/root/go/bin/
+export GOPATH=$PWD
+# 强制启用go module
+export GO111MODULE=on
+# 配置默认从goproxy.io拉去go mod的依赖包，goproxy.io是国内七牛云维护的一个golang包代理库
+export GOPROXY=https://goproxy.io
+cd src/testController
+</code></pre>
+<h3 id="22-创建project">2.2 创建PROJECT</h3>
+<pre><code>kubebuilder init --domain test1.test2 --license apache2 --owner &quot;The Kubernetes Authors&quot;
+cat PROJECT
+</code></pre>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1614304636185.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="23-创建api">2.3 创建API</h3>
+<pre><code>kubebuilder create api --group apps --version v1 --kind Test
+cat config/samples/apps_v1_test.yaml
+</code></pre>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1614304670523.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="24-install-the-crds-into-the-cluster">2.4 Install the CRDs into the cluster</h3>
+<pre><code>make install
+</code></pre>
+<h3 id="25-在本地运行controller">2.5 在本地运行Controller</h3>
+<pre><code>make run
+</code></pre>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1614304707772.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="26-创建resource-of-crd">2.6 创建Resource of CRD</h3>
+<pre><code>kubectl create -f config/samples/apps_v1_test.yaml
+</code></pre>
+<p>可以看到controller的日志打印如下</p>
+<figure data-type="image" tabindex="4"><img src="https://rexrock.github.io/post-images/1614304738769.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="27-编译打包">2.7 编译打包</h3>
+<p>首先修改Dockerfile：<br>
+<em>1）在RUN go mod download前插入一行ENV GOPROXY=https://goproxy.cn,direct</em><br>
+<em>2）将FROM <em><a href="http://gcr.io/distroless/static:nonroot%E6%94%B9%E4%B8%BAFROM"><em>gcr.io/distroless/static:nonroot改为FROM</em></a></em> golang:1.13</em><br>
+<em>3）删除USER nonroot:nonroot</em><br>
+然后运行：</p>
+<pre><code>docker build -t test-controller .
+</code></pre>
+<p>成功会看到</p>
+<figure data-type="image" tabindex="5"><img src="https://rexrock.github.io/post-images/1614304772724.png" alt="enter description here" loading="lazy"></figure>
+<p>可以通过docker images命令查看镜像，或者通过docker save和docker load导出和导入。</p>
+<h2 id="3-创建core-resource的controller">3. 创建Core Resource的controller</h2>
+<p>参考：</p>
+<p><a href="https://book-v1.book.kubebuilder.io/beyond_basics/controllers_for_core_resources.html">https://book-v1.book.kubebuilder.io/beyond_basics/controllers_for_core_resources.html</a></p>
+<ol>
+<li>
+<p>创建后需要修改controllers/deployment_controller.go文件：</p>
+<pre><code>import添加：corev1 &quot;[k8s.io/api/core/v1](http://k8s.io/api/core/v1)&quot;
+
+import删除：appsv1 &quot;testController/api/v1&quot;
+</code></pre>
+</li>
+<li>
+<p>修改函数SetupWithManager：</p>
+<pre><code>将For(&amp;appsv1.Test{})改为For(&amp;corev1.Pod{})
+
+然后重新make run，则会收到pod创建、删除的event消息
+</code></pre>
+</li>
+</ol>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[使用kubeadm搭建一个k8s集群]]></title>
+        <id>https://rexrock.github.io/post/k8s1/</id>
+        <link href="https://rexrock.github.io/post/k8s1/">
+        </link>
+        <updated>2021-03-03T03:31:00.000Z</updated>
+        <content type="html"><![CDATA[<p>官方文档：</p>
+<p><a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/">Installing kubeadm</a></p>
+<p><a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/">Creating a cluster with kubeadm</a></p>
+<p>参考：</p>
+<p><a href="https://zhuanlan.zhihu.com/p/40931670">使用kubeadm安装Kubernetes 1.11</a></p>
+<p><a href="http://docs.kubernetes.org.cn/468.html">Kubernetes kubectl run 命令详解</a></p>
+<p><a href="https://godoc.org/k8s.io/api/core/v1#PodStatus">k8s的API手册</a></p>
+<h2 id="1-安装docker">1. 安装docker</h2>
+<pre><code>curl -sSL https://get.docker.com | sh
+cat &gt; /etc/docker/daemon.json &lt;
+{
+&quot;registry-mirrors&quot;: [&quot;https://dic5s40p.mirror.aliyuncs.com&quot;]
+}
+EOF
+</code></pre>
+<p>使用国内的镜像仓库：</p>
+<pre><code>
+# vi /etc/docker/daemon.json 
+
+{
+  &quot;registry-mirrors&quot;: [
+    &quot;https://hub-mirror.c.163.com&quot;,
+    &quot;https://mirror.baidubce.com&quot;,
+    &quot;https://dic5s40p.mirror.aliyuncs.com&quot;
+  ]
+}
+# systemctl restart docker.service
+</code></pre>
+<p>然后查看修改是否生效：</p>
+<pre><code># docker info | tail -10
+ Debug Mode: false
+ Experimental: false
+ Insecure Registries:
+  127.0.0.0/8
+ Registry Mirrors:
+  https://hub-mirror.c.163.com/
+  https://mirror.baidubce.com/
+  https://dic5s40p.mirror.aliyuncs.com/
+ Live Restore Enabled: false
+</code></pre>
+<p>废弃方法：然后在/etc/default/docker中添加:</p>
+<pre><code>DOCKER\_OPTS=&quot;--registry-mirror=https://dic5s40p.mirror.aliyuncs.com&quot;
+</code></pre>
+<p>然后执行：</p>
+<pre><code>systemctl restart docker
+</code></pre>
+<h2 id="2-安装kubeadm-kubelet-kubectl">2. 安装kubeadm、kubelet、kubectl</h2>
+<p><a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/">https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/</a></p>
+<pre><code>#!/bin/bash
+set -e
+apt-get -y install apt-transport-https ca-certificates curl software-properties-common
+curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | apt-key add -
+add-apt-repository \
+&quot;deb http://mirrors.ustc.edu.cn/kubernetes/apt \
+kubernetes-xenial \
+main&quot;
+apt-get update
+apt-get install -y kubelet=1.17.17-00 kubeadm=1.17.17-00 kubectl=1.17.17-00
+systemctl enable kubelet &amp;&amp; systemctl start kubelet
+</code></pre>
+<h2 id="3-cgroup设置">3. Cgroup设置</h2>
+<p><a href="https://v1-25.docs.kubernetes.io/docs/setup/production-environment/container-runtimes/#cgroup-drivers">Cgroup驱动设置</a></p>
+<p>Debian11默认使用cgroupv2，但是没通过systemd管理，然后kubeadm要求cgroupv2必须使用systemd管理。所以切回cgroup1。kubelet默认也是通过cgroup驱动管理，如果用systemd还需要修改配置文件，麻烦：</p>
+<pre><code># 在内核启动参数中加入
+systemd.unified_cgroup_hierarchy=false systemd.legacy_systemd_cgroup_controller=false
+</code></pre>
+<h2 id="4-无网环境部署k8s集群">4. 无网环境部署k8s集群</h2>
+<p><a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init/#without-internet-connection">提前拉取所需镜像</a></p>
+<pre><code>kubeadm config images list
+kubeadm config images pull --image-repository registry.cn-hangzhou.aliyuncs.com/google\_containers
+</code></pre>
+<h2 id="5-初始化master节点">5. 初始化master节点</h2>
+<pre><code>kubeadm init --pod-network-cidr=10.17.0.0/16 --service-cidr=10.18.200.0/24 --kubernetes-version=v1.18.5 --image-repository registry.cn-hangzhou.aliyuncs.com/google\_containers
+</code></pre>
+<p>成功会显示</p>
+<pre><code>kubeadm join 192.168.100.12:6443 --token yskexa.twu83wmh7n64oczk \
+    --discovery-token-ca-cert-hash sha256:d6dcfecc04d8452875155de28dc229eb4f7842eb55e8f998cade89cc625a679e
+</code></pre>
+<h2 id="6-为了可以执行kubectl">6. 为了可以执行kubectl</h2>
+<pre><code>rm -rf $HOME/.kube
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+</code></pre>
+<h2 id="7-安装pod-network">7. 安装pod network</h2>
+<pre><code>wget https://docs.projectcalico.org/v3.14/manifests/calico.yaml
+# 什么都不要改，会自动检测出pod ip的范围
+kubectl create -f calico.yaml
+</code></pre>
+<p>通过meta-plugin部署macvlan网络（前提也得是先部署calico，但是支持让macvlan口变为默认接口）：</p>
+<p><a href="https://github.com/spidernet-io/cni-plugins/blob/main/docs/usage/basic.md">spidernet-io</a></p>
+<p>为什么选择该plugin呢，因为道客应该用的就是该方案：</p>
+<p><a href="https://docs.daocloud.io/en/network/modules/multus-underlay/macvlan/#install">Daocloud部署macvlan</a></p>
+<p>在VPC环境中，macvlan可能不通，所以可以换成ipvlan，配置基本一致，只不过ipvlan的mode是l2/l3/l3s：</p>
+<p><a href="https://www.cni.dev/plugins/current/main/ipvlan/">配置ipvlan</a></p>
+<p>定义MacVlan网络（<strong>原生的ipam不支持跨节点管理ip资源分配，因此需要为每个节点创建相应的网络</strong>）：</p>
+<pre><code>apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+   name: macvlan-overlay-big1
+   namespace: kube-system
+spec:
+   config: |-
+      {
+          &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+          &quot;name&quot;: &quot;macvlan-overlay-big1&quot;,
+          &quot;plugins&quot;: [
+              {
+                  &quot;type&quot;: &quot;macvlan&quot;,
+                  &quot;master&quot;: &quot;eth0&quot;,
+                  &quot;mode&quot;: &quot;bridge&quot;,
+                  &quot;ipam&quot;: {
+                      &quot;type&quot;: &quot;host-local&quot;,
+                      &quot;subnet&quot;: &quot;172.16.252.0/22&quot;,
+                      &quot;rangeStart&quot;: &quot;172.16.253.102&quot;,
+                      &quot;rangeEnd&quot;: &quot;172.16.253.151&quot;,
+                      &quot;routes&quot;: [
+                          { &quot;dst&quot;: &quot;0.0.0.0/0&quot; }
+                      ],
+                      &quot;gateway&quot;: &quot;172.16.252.1&quot;
+                  }
+              },{
+                  &quot;type&quot;: &quot;router&quot;,
+                  &quot;service_hijack_subnet&quot;: [&quot;10.18.0.0/16&quot;],
+                  &quot;overlay_hijack_subnet&quot;: [&quot;10.17.0.0/16&quot;],
+                  &quot;additional_hijack_subnet&quot;: [],
+                  &quot;migrate_route&quot;: -1,
+                  &quot;rp_filter&quot;: {
+                      &quot;set_host&quot;: true,
+                      &quot;value&quot;: 0
+                  },
+                  &quot;overlay_interface&quot;: &quot;eth0&quot;,
+                  &quot;skip_call&quot;: false
+              }
+          ]
+      }
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+   name: macvlan-standalone-big1
+   namespace: kube-system
+spec:
+   config: |-
+      {
+          &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+          &quot;name&quot;: &quot;macvlan-standalone-big1&quot;,
+          &quot;plugins&quot;: [
+              {
+                  &quot;type&quot;: &quot;macvlan&quot;,
+                  &quot;master&quot;: &quot;eth0&quot;,
+                  &quot;mode&quot;: &quot;bridge&quot;,
+                  &quot;ipam&quot;: {
+                      &quot;type&quot;: &quot;host-local&quot;,
+                      &quot;subnet&quot;: &quot;172.16.252.0/22&quot;,
+                      &quot;rangeStart&quot;: &quot;172.16.253.2&quot;,
+                      &quot;rangeEnd&quot;: &quot;172.16.253.51&quot;,
+                      &quot;routes&quot;: [
+                          { &quot;dst&quot;: &quot;0.0.0.0/0&quot; }
+                      ],
+                      &quot;gateway&quot;: &quot;172.16.252.1&quot;
+                  }
+              },{
+                  &quot;type&quot;: &quot;veth&quot;,
+                  &quot;service_hijack_subnet&quot;: [&quot;10.18.0.0/16&quot;],
+                  &quot;overlay_hijack_subnet&quot;: [&quot;10.17.0.0/16&quot;],
+                  &quot;additional_hijack_subnet&quot;: [],
+                  &quot;migrate_route&quot;: -1,
+                  &quot;rp_filter&quot;: {
+                      &quot;set_host&quot;: true,
+                      &quot;value&quot;: 0
+                  },
+                  &quot;skip_call&quot;: false
+              }
+          ]
+      }
+</code></pre>
+<p>定义IPVlan网络（<strong>原生的cni也不支持固化pod的ip，但是可以通过创建只有一个ip的网络来实现</strong>）：</p>
+<pre><code>apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+   name: ipvlan-standalone-251
+   namespace: kube-system
+spec:
+   config: |-
+      {
+          &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+          &quot;name&quot;: &quot;ipvlan-standalone-251&quot;,
+          &quot;plugins&quot;: [
+              {
+                  &quot;type&quot;: &quot;ipvlan&quot;,
+                  &quot;master&quot;: &quot;eth0&quot;,
+                  &quot;mode&quot;: &quot;l3&quot;,
+                  &quot;ipam&quot;: {
+                      &quot;type&quot;: &quot;host-local&quot;,
+                      &quot;subnet&quot;: &quot;172.16.252.0/22&quot;,
+                      &quot;rangeStart&quot;: &quot;172.16.254.251&quot;,
+                      &quot;rangeEnd&quot;: &quot;172.16.254.251&quot;,
+                      &quot;routes&quot;: [
+                          { &quot;dst&quot;: &quot;0.0.0.0/0&quot; }
+                      ],
+                      &quot;gateway&quot;: &quot;172.16.252.1&quot;
+                  }
+              },{
+                  &quot;type&quot;: &quot;veth&quot;,
+                  &quot;service_hijack_subnet&quot;: [&quot;10.18.0.0/16&quot;],
+                  &quot;overlay_hijack_subnet&quot;: [&quot;10.17.0.0/16&quot;],
+                  &quot;additional_hijack_subnet&quot;: [],
+                  &quot;migrate_route&quot;: -1,
+                  &quot;rp_filter&quot;: {
+                      &quot;set_host&quot;: true,
+                      &quot;value&quot;: 0
+                  },
+                  &quot;skip_call&quot;: false
+              }
+          ]
+      }
+</code></pre>
+<h2 id="8-添加worker节点">8. 添加worker节点</h2>
+<p>在worker节点上执行kubeadm init成功后返回的命令，即</p>
+<pre><code>kubeadm join 192.168.100.12:6443 --token 7u1jah.da6w4tilh0j5097w \
+    --discovery-token-ca-cert-hash sha256:bcd0ce4354f2e8b794b830d7a14389b6a06e46e225486ece8218424a1744583f
+</code></pre>
+<p>注意：token的有效期只有24小时，我们可以用如下命令查看可用的token</p>
+<pre><code>kubeadm token list
+</code></pre>
+<p>如果为空，我们可以通过如下命令创建token</p>
+<pre><code>kubeadm token create
+</code></pre>
+<p>如果你连cert-hash也忘了，那么可以通过如下命令查看</p>
+<pre><code>openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2&gt;/dev/null | \
+   openssl dgst -sha256 -hex | sed 's/^.* //'
+</code></pre>
+<p>设置worker节点role:</p>
+<pre><code>kubectl label node deb11-vhu1-big2 kubernetes.io/role=worker
+</code></pre>
+<h2 id="9-删除worker节点">9. 删除worker节点</h2>
+<pre><code>kubectl drain &lt;node name&gt; --delete-local-data --force --ignore-daemonsets
+# 下面三条命令在worker节点上运行
+kubeadm reset
+iptables -F &amp;&amp; iptables -t nat -F &amp;&amp; iptables -t mangle -F &amp;&amp; iptables -X
+ipvsadm -C # 如果使用了ipvs
+kubectl delete node &lt;node name&gt;
+</code></pre>
+<h2 id="10-删除master节点">10. 删除master节点</h2>
+<pre><code># 在master节点上运行
+kubeadm reset
+</code></pre>
+<h2 id="11-开启关闭dns">11 开启关闭dns</h2>
+<pre><code>kubectl -n kube-system scale --replicas=0 deployment/coredns
+kubectl -n kube-system scale --replicas=1 deployment/coredns
+</code></pre>
+<h2 id="12-让master节点也可以调度pod">12. 让master节点也可以调度pod</h2>
+<pre><code>kubectl taint nodes --all node-role.kubernetes.io/master-
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[XDP技术简介]]></title>
+        <id>https://rexrock.github.io/post/xdp1/</id>
+        <link href="https://rexrock.github.io/post/xdp1/">
+        </link>
+        <updated>2021-03-03T02:51:00.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="1-xdp程序的运行位置">1. XDP程序的运行位置</h2>
+<p>XDP（eXpress Data Path）提供了一个内核态、高性能、可编程 BPF 包处理框架。这个框架在软件中最早可以处理包的位置（即网卡驱动收到包的 时刻）运行 BPF 程序。如下图所示：</p>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1613889918890.png" alt="XDP程序运行的位置" loading="lazy"></figure>
+<p>NAPI poll 机制不断调用驱动实现的 poll 方法，后者处理 RX 队列内的包，并最终将包送到正确的程序，也就是我们所说的 XDP 程序。所以很明显这需要网卡驱动的支持，如果驱动支持 XDP ，那 XDP 程序将在 poll 机制内执行。如果不支持，那 XDP 程序将只能在更后面的位置被执行，即上图中的receive_skb中。这其中经历了哪些步骤呢？</p>
+<ol>
+<li>创建skb，如果不支持XDP，poll机制会将报文送给 clean_rx()，该函数会创建一个skb，并skb进行一些硬件校验何检查，然后较给 gro_receive() 函数；</li>
+<li>分片重组，GRO可以理解为LRO的软件实现，相比LRO只针对TCP报文，GRO可以处理更多其他类型的报文，总之在 gro_receive() 函数中，如果是分片报文则进行分片重组然后交给 receive_skb() 函数，如果不是分片报文，则直接交给 receive_skn() 函数进行处理；</li>
+</ol>
+<h2 id="2-xdp的三种工作模式">2. XDP的三种工作模式</h2>
+<p>上面提到XDP程序可以运行在不同位置，每个位置即对应XDP的一种工作模式：</p>
+<ul>
+<li>Native XDP，即运行在网卡驱动实现的的 poll() 函数中，需要网卡驱动的支持；</li>
+<li>Generic XDP，即上面提到的如果网卡驱动不支持XDP，则可以运行在 receive_skb() 函数中；</li>
+<li>Offloaded XDP，这种模式是指将XDP程序offload到网卡中，这需要网卡硬件的支持，JIT编译器将BPF代码翻译成网卡原生指令并在网卡上运行。</li>
+</ul>
+<h2 id="3-xdp程序的返回码">3. XDP程序的返回码</h2>
+<p>XDP程序执行结束后会返回一个结果，告诉调用者接下来如何处理这个包：</p>
+<ul>
+<li>XDP_DROP，丢弃这个包，主要用于报文过滤的安全场景；</li>
+<li>XDP_PASS，将这个包“交给/还给”内核，继续走正常的内核处理流程；</li>
+<li>XDP_TX，从收到包的网卡上再将这个包发出去（即hairpin模式），主要用于负载均衡场景；</li>
+<li>XDP_REDIRECT，何XDP_TX类似，但是是通过另外一个网卡将包发出去。除此之外还可以实现将报文重定向到其他的CPU处理，类似于XDP_PASS继续走内核处理流程，但是由其他的CPU处理，当前CPU继续处理后续的报文接收；</li>
+<li>XDP_ABORTED，表示程序产生异常，行为类似XDP_DROP，但是会通过一个tracepoint打印日志义工追踪；</li>
+</ul>
+<p>下面是 Mellanox mlx5 驱动中关于XDP的处理，如果该函数返回 true，则说明报文被XDP处理了，不用再走内核协议栈了，如果返回 false 则创建SKB然后继续走内核协议栈：</p>
+<pre><code>/* returns true if packet was consumed by xdp */
+bool mlx5e_xdp_handle(struct mlx5e_rq *rq, struct mlx5e_dma_info *di,
+                      u32 *len, struct xdp_buff *xdp)
+{
+        struct bpf_prog *prog = rcu_dereference(rq-&gt;xdp_prog);
+        u32 act;
+        int err;
+
+        if (!prog)
+                return false;
+
+        act = bpf_prog_run_xdp(prog, xdp);
+        switch (act) {
+        case XDP_PASS:
+                *len = xdp-&gt;data_end - xdp-&gt;data;
+                return false;
+        case XDP_TX:
+                if (unlikely(!mlx5e_xmit_xdp_buff(rq-&gt;xdpsq, rq, di, xdp)))
+                        goto xdp_abort;
+                __set_bit(MLX5E_RQ_FLAG_XDP_XMIT, rq-&gt;flags); /* non-atomic */
+                return true;
+        case XDP_REDIRECT:
+                if (xdp-&gt;rxq-&gt;mem.type != MEM_TYPE_XSK_BUFF_POOL) {
+                        page_ref_sub(di-&gt;page, di-&gt;refcnt_bias);
+                        di-&gt;refcnt_bias = 0;
+                }
+                /* When XDP enabled then page-refcnt==1 here */
+                err = xdp_do_redirect(rq-&gt;netdev, xdp, prog);
+                if (unlikely(err))
+                        goto xdp_abort;
+                __set_bit(MLX5E_RQ_FLAG_XDP_XMIT, rq-&gt;flags);
+                __set_bit(MLX5E_RQ_FLAG_XDP_REDIRECT, rq-&gt;flags);
+                if (xdp-&gt;rxq-&gt;mem.type != MEM_TYPE_XSK_BUFF_POOL)
+                        mlx5e_page_dma_unmap(rq, di);
+                rq-&gt;stats-&gt;xdp_redirect++;
+                return true;
+        default:
+                bpf_warn_invalid_xdp_action(act);
+                fallthrough;
+        case XDP_ABORTED:
+xdp_abort:
+                trace_xdp_exception(rq-&gt;netdev, prog, act);
+                fallthrough;
+        case XDP_DROP:
+                rq-&gt;stats-&gt;xdp_drop++;
+                return true;
+        }
+}
+
+</code></pre>
+<p><strong>疑问？</strong><br>
+如果我们相对报文执行 redirect，那么我们在BPF程序中需要执行 bpf_redirect() / bpf_redirect_map()，但是从上面的代码中看，从我们的BPF程序返回后，驱动程序也调用了一个叫做 xdp_do_redirect() 的函数。那么问题来了，报文的 redirect 到底是在什么时候执行的呢？答案后面揭晓。</p>
+<p><strong>接着分析：</strong></p>
+<pre><code class="language-drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c:mlx5e_xdp_handle">        case XDP_REDIRECT:
+                /* When XDP enabled then page-refcnt==1 here */
+                err = xdp_do_redirect(rq-&gt;netdev, &amp;xdp, prog);
+                if (unlikely(err))
+                        goto xdp_abort;
+                __set_bit(MLX5E_RQ_FLAG_XDP_XMIT, rq-&gt;flags);
+                __set_bit(MLX5E_RQ_FLAG_XDP_REDIRECT, rq-&gt;flags);
+                if (!xsk)
+                        mlx5e_page_dma_unmap(rq, di);
+                rq-&gt;stats-&gt;xdp_redirect++;
+                return true;
+</code></pre>
+<p>XDP程序返回后，驱动会根据XDP程序的返回码去真正执行 action。我们以 XDP_REDIRECT 为例，继续跟踪 xdp_do_redirect() 函数：</p>
+<pre><code class="language-javascript">// &gt;&gt; net/core/filter.c
+xdp_do_redirect(netdev, xdp_buff, xdp_prog) =&gt;
+xdp_do_redirect_map(netdev, xdp_buff, xdp_prog, bpf_map, bpf_redirect_info) =&gt;
+__bpf_tx_xdp_map(netdev, fwd, bpf_map, xdp_buff, index) =&gt;
+// fwd即xdp_sock；
+
+// &gt;&gt; kernel/bpf/xskmap.c
+__xsk_map_redirect(bpf_map, xdp_buff, xdp_sock) =&gt;
+
+// &gt;&gt; net/xdp/xsk.c
+xsk_rcv(xdp_sock, xdp_buff)
+__xsk_rcv(xdp_sock, xdp_buff, len)
+</code></pre>
+<p>我们主要看下 xsk_rck() 和 __xsk_rcv() 两个函数：</p>
+<pre><code class="language-xl">int xsk_rcv(struct xdp_sock *xs, struct xdp_buff *xdp)
+{
+        u32 len;
+
+        if (!xsk_is_bound(xs))
+                return -EINVAL;
+        // AF_XDP技术详解中曾介绍过，AF_XDP socket是跟具体的网卡RX队列绑定的，这里再真正执行
+		// 收包前做了依次判断(虽然XDP程序中也有判断，但毕竟不是强制的)
+        if (xs-&gt;dev != xdp-&gt;rxq-&gt;dev || xs-&gt;queue_id != xdp-&gt;rxq-&gt;queue_index)
+                return -EINVAL;
+
+        len = xdp-&gt;data_end - xdp-&gt;data;
+
+        return (xdp-&gt;rxq-&gt;mem.type == MEM_TYPE_ZERO_COPY) ?
+                __xsk_rcv_zc(xs, xdp, len) : __xsk_rcv(xs, xdp, len);
+}
+</code></pre>
+<pre><code class="language-javascript">static int __xsk_rcv(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
+{
+        u64 offset = xs-&gt;umem-&gt;headroom;
+        u64 addr, memcpy_addr;
+        void *from_buf;
+        u32 metalen;
+        int err;
+
+        // 从 FILL RING中获取可以承载报文数据的desc
+        if (!xskq_peek_addr(xs-&gt;umem-&gt;fq, &amp;addr, xs-&gt;umem) ||
+            len &gt; xs-&gt;umem-&gt;chunk_size_nohr - XDP_PACKET_HEADROOM) {
+                xs-&gt;rx_dropped++;
+                return -ENOSPC;
+        }
+
+        if (unlikely(xdp_data_meta_unsupported(xdp))) {
+                from_buf = xdp-&gt;data;
+                metalen = 0;
+        } else {
+                from_buf = xdp-&gt;data_meta;
+                metalen = xdp-&gt;data - xdp-&gt;data_meta;
+        }
+        // 执行报文数据的copy，该函数时非zero copy模式下的执行函数
+        memcpy_addr = xsk_umem_adjust_offset(xs-&gt;umem, addr, offset);
+        __xsk_rcv_memcpy(xs-&gt;umem, memcpy_addr, from_buf, len, metalen);
+
+        offset += metalen;
+        addr = xsk_umem_adjust_offset(xs-&gt;umem, addr, offset);
+		// 插入到 RX RING中
+        err = xskq_produce_batch_desc(xs-&gt;rx, addr, len);
+        if (!err) {
+                xskq_discard_addr(xs-&gt;umem-&gt;fq);
+                xdp_return_buff(xdp);
+                return 0;
+        }
+
+        xs-&gt;rx_dropped++;
+        return err;
+}
+</code></pre>
+<p><strong>结论：</strong><br>
+bpf_redirect() 和 bpf_redirect_map() 应该只是填充bpf_redirect_info结构（即redirect的target相关的数据），真正的redirect操作仍由驱动在 XDP程序返回后执行。</p>
+<pre><code class="language-javascript">// &gt;&gt; include/linux/filter.h
+struct bpf_redirect_info {
+        u32 flags;
+        u32 tgt_index;
+        void *tgt_value;
+        struct bpf_map *map;
+        struct bpf_map *map_to_flush;
+        u32 kern_flags;
+};
+// &gt;&gt; net/core/filter.c:
+int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+                    struct bpf_prog *xdp_prog)
+{
+        struct bpf_redirect_info *ri = this_cpu_ptr(&amp;bpf_redirect_info);
+        struct bpf_map *map = READ_ONCE(ri-&gt;map);
+
+        if (likely(map))
+                return xdp_do_redirect_map(dev, xdp, xdp_prog, map, ri);
+
+        return xdp_do_redirect_slow(dev, xdp, xdp_prog, ri);
+}
+</code></pre>
+<p>分析的没错，bpf_redirect_map()函数定义如下：</p>
+<pre><code class="language-javascript">// &gt;&gt; net/core/filter.c
+BPF_CALL_3(bpf_xdp_redirect_map, struct bpf_map *, map, u32, ifindex,
+           u64, flags)
+{
+        struct bpf_redirect_info *ri = this_cpu_ptr(&amp;bpf_redirect_info);
+
+        /* Lower bits of the flags are used as return code on lookup failure */
+        if (unlikely(flags &gt; XDP_TX))
+                return XDP_ABORTED;
+
+        ri-&gt;tgt_value = __xdp_map_lookup_elem(map, ifindex);
+        if (unlikely(!ri-&gt;tgt_value)) {
+                /* If the lookup fails we want to clear out the state in the
+                 * redirect_info struct completely, so that if an eBPF program
+                 * performs multiple lookups, the last one always takes
+                 * precedence.
+                 */
+                WRITE_ONCE(ri-&gt;map, NULL);
+                return flags;
+        }
+
+        ri-&gt;flags = flags;
+        ri-&gt;tgt_index = ifindex;
+        WRITE_ONCE(ri-&gt;map, map);
+
+        return XDP_REDIRECT;
+}
+</code></pre>
+]]></content>
+    </entry>
+</feed>

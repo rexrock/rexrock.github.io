@@ -1,0 +1,343 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>Memcached配置详细说明（包括协议说明） | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    Memcached配置详细说明（包括协议说明）
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2013-09-02 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/yeofxHFf1F/" class="post-tags">
+                            # Memcached
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <p><strong>Memcached的key一定不能有空格</strong></p>
+<h2 id="1-常用参数">1. 常用参数</h2>
+<pre><code class="language-haml">memcached -m 64 -M -u root -d -l 127.0.0.1 -p 11211 -U 11212
+# -m 指定缓存所使用的最大内存容量，单位是Megabytes，默认是64MB
+# -u 只有以root身份运行时才指定该参数
+# -d 以daemon的形式运行
+# -l 指定监听的地址
+# -p 指定监听的TCP端口号，默认是11211
+# -t 指定线程数，默认是4个
+# -h 打印帮助信息
+# -c 最大同时连接数，默认是1024.
+# -U 指定监听的UDP端口号，默认是11211
+# -M 内存耗尽时显示错误，而不是删除项
+# -f 块大小增长因子，默认是1.25
+# -n 最小分配空间，key+value+flags默认是48
+# “-d”参数需要进行进一步的解释
+#     -d install 安装memcached
+#    -d uninstall 卸载memcached
+#    -d start 启动memcached服务
+#    -d restart 重启memcached服务
+#    -d stop 停止memcached服务
+#    -d shutdown 停止memc
+</code></pre>
+<h2 id="2-memcached的命令memcached有三种类型的命令">2. Memcached的命令（memcached有三种类型的命令）</h2>
+<h3 id="20-出错信息">2.0 出错信息</h3>
+<p>每个命令都有可能被反馈以一个错误消息。这些错误消息有以下三个类型：<br>
+<strong>ERROR</strong><br>
+意味着客户端发送了一个在协议中不存在的命令。<br>
+<strong>CLIENT_ERROR</strong><br>
+表示客户端输入的命令行上存在某种错误，输入不符合协议规定。是一个人工可读（human-readable）的错误注释。<br>
+<strong>SERVER_ERROR</strong><br>
+表示服务器在执行命令时发生了某些错误，致使服务器无法执行下去。也是一个人工可读（human-readable）的错误注释。在一些情况下，错误导致服务器不能再为客户端服务（这样的情况很少发生），服务器就会在发生错误消息后主动关闭连接。这也是服务器主动关闭到客户端连接的唯一情况。</p>
+<h3 id="21-存储命令">2.1 存储命令</h3>
+<p><strong>命令格式：</strong><br>
+3个命令：set、add和replace，要求服务器按照关键字存储数据。<br>
+客户端先发送一个命令行，然后才可以发送一个数据块；命令执行后客户端等待一行反馈，用来表示命令执行成功与否。<br>
+<img src="https://rexrock.github.io/post-images/1618444054397.png" alt="enter description here" loading="lazy"></p>
+<p><strong>参数说明：</strong></p>
+<ul>
+<li>&quot;command name&quot;是 set、add或者replace。set表示存储该数据；add表示如果服务器没有保存该关键字的情况下，存储该数据；replace表示在服务器已经拥有该关键字的情况下，替换原有内容。</li>
+<li>&quot;key&quot;是客户端要求服务器存储数据的关键字。</li>
+<li>&quot;flags&quot;是一个16位的无符号整数，服务器将它和数据一起存储并且当该数据被检索时一起返回。客户端可能使用该数值作为一个位图来存储特殊数据信息；这个字段对服务器不是透明的。</li>
+<li>&quot;exptime&quot;是超时时间。如果值为0表示该数据项永远不超时（但有时候该数据项可能被删除以为其他数据腾出空间）；如果值不为0，可能是绝对的UNIX时间，也可能是自现在开始的偏移值，它保证客户段在这个超时时间到达后，客户端将取不到该数据项。</li>
+<li>&quot;bytes&quot;是随后数据的字节数，不包括终结符”&quot;r&quot;n”。有可能是0，它后面将是一个空的数据块。</li>
+<li>&quot;data block&quot;是真正要存储数据流。</li>
+</ul>
+<p><strong>返回结果：</strong><br>
+发送命令行和数据后，客户端等待反馈，可以是如下几种情况：</p>
+<ul>
+<li>STORED表示存储数据成功。</li>
+<li>NOT_STORED表示发送的数据没有存储，但这不因为错误，而是发生在add或者replace命令不能满足条件时，或者数据项正处于要删除的队列中。</li>
+<li>错误消息<br>
+<img src="https://rexrock.github.io/post-images/1618444309897.png" alt="enter description here" loading="lazy"></li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1618444316522.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1618444321816.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="22-读取命令">2.2 读取命令</h3>
+<p><strong>命令格式：</strong></p>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1618444345527.png" alt="enter description here" loading="lazy"></figure>
+<p>返回的数据格式<br>
+<img src="https://rexrock.github.io/post-images/1618444355776.png" alt="enter description here" loading="lazy"></p>
+<p>发送命令后，客户端等待返回一个或多个数据项，每个数据项的格式是一个文本行，后跟着一个数据块。当所有的数据项发送完毕后，服务器发送字符串”END&quot;r&quot;n”表示服务器反馈数据的结束。</p>
+<ul>
+<li>“key”是发生数据项的关键字。</li>
+<li>&quot;flags&quot;是存储该数据项时，客户端命令中的标志字段。</li>
+<li>&quot;bytes&quot;是紧跟文本行后数据块的长度，不包括终结符”&quot;r&quot;n”。</li>
+<li>&quot;datablock&quot;是数据项的数据部分。<br>
+如果请求命令行中的有些关键字对应的数据项没有被返回，这意味着服务器没有该关键字标示下的数据项（有可能是从来没有被存储过，或者存储过但被删除掉以腾出内存空间，或者数据项超时了，再或者它被某个客户端删除了）。<br>
+<img src="https://rexrock.github.io/post-images/1618444498746.png" alt="enter description here" loading="lazy"></li>
+</ul>
+<h3 id="23-删除命令">2.3 删除命令</h3>
+<p>delete每次只能删除一个K-V对象<br>
+<img src="https://rexrock.github.io/post-images/1618444537311.png" alt="enter description here" loading="lazy"></p>
+<ul>
+<li>“key”是客户端希望服务器删除数据项的关键字</li>
+<li>&quot;time&quot;是客户端希望服务器阻止add和replace命令使用该关键字数据项的秒数，可以是相对时间也可以是UNIX的绝对时间。在这段时间内，数据项被放入一个删除队列，它不能被get命令读取，在其上使用add和replace也会失败，但使用set命令可以成功。当这个时间过去后，数据项从服务器的内存中真正的删除。该参数是可选参数，如果不存在默认为0，这意味着立即从服务器上删除。</li>
+</ul>
+<p>服务器返回信息：</p>
+<ul>
+<li>&quot;DELETED&quot;r&quot;n&quot; 表示数据项删除成功</li>
+<li>&quot;NOT_FOUND&quot;r&quot;n&quot; 表示该关键字指定的数据项在服务器上没有找到</li>
+<li>其他错误消息<br>
+<img src="https://rexrock.github.io/post-images/1618444579632.png" alt="enter description here" loading="lazy"></li>
+</ul>
+<h3 id="24-flush_all命令">2.4 flush_all命令</h3>
+<p>清除memcached中的所有数据<br>
+<img src="https://rexrock.github.io/post-images/1618444639016.png" alt="enter description here" loading="lazy"></p>
+<h3 id="25-incrdecr命令">2.5 incr/decr命令</h3>
+<figure data-type="image" tabindex="4"><img src="https://rexrock.github.io/post-images/1618444663601.png" alt="enter description here" loading="lazy"></figure>
+<p>注意：</p>
+<ul>
+<li>命令中的value不是K-V对象中的value，而是对应的“加数”或者“减数”，K-V对象中value将会加上或者减去这个值，这个值是一个32位无符号整数。</li>
+<li>只有K-V对象的value全部为数字时（即数字之间可以有空格，但是不可有任何其他字符），才可以使用incr/decr命令，当有很多被空格隔开的数字时，只操作第一个数字。</li>
+</ul>
+<figure data-type="image" tabindex="5"><img src="https://rexrock.github.io/post-images/1618444684905.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="26-stats命令">2.6 stats命令</h3>
+<p>“stats”命令用来查询服务器的运行情况和其他内部数据。它有两种情况，以有无参数来区分：</p>
+<figure data-type="image" tabindex="6"><img src="https://rexrock.github.io/post-images/1618444709067.png" alt="enter description here" loading="lazy"></figure>
+<p>当接收到没有带参数的“stats”命令后，服务器发送许多类似与如下格式的文本行：</p>
+<figure data-type="image" tabindex="7"><img src="https://rexrock.github.io/post-images/1618444720461.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="8"><img src="https://rexrock.github.io/post-images/1618444726931.png" alt="enter description here" loading="lazy"></figure>
+<p>在所有STAT文本行中，是该统计项目的名称，是其数据。下面是一份stats命令反馈的所有统计项目的列表，后面跟着其值的数据类型。在数据类型列中，”32u”表示一个32位无符号整数，”64u”表示一个64位无符号整数，”32u:32u”表示是两个用冒号分割的32位无符号整数。</p>
+<figure data-type="image" tabindex="9"><img src="https://rexrock.github.io/post-images/1618444737755.png" alt="enter description here" loading="lazy"></figure>
+<figure data-type="image" tabindex="10"><img src="https://rexrock.github.io/post-images/1618444744254.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="27-quit命令">2.7 quit命令</h3>
+<p>&quot;quit&quot;是一个没有参数的命令。其格式如下</p>
+<figure data-type="image" tabindex="11"><img src="https://rexrock.github.io/post-images/1618444772620.png" alt="enter description here" loading="lazy"></figure>
+<p>当服务器接受到此命令后，就关闭与该客户的连接。不管怎样，客户端可以在任意不需要该连接的时刻关闭它，而不需要发送该命令。</p>
+<figure data-type="image" tabindex="12"><img src="https://rexrock.github.io/post-images/1618444783381.png" alt="enter description here" loading="lazy"></figure>
+<h3 id="28-version命令">2.8 version命令</h3>
+<p>返回版本信息</p>
+<figure data-type="image" tabindex="13"><img src="https://rexrock.github.io/post-images/1618444811386.png" alt="enter description here" loading="lazy"></figure>
+<p>服务器发回的反馈信息如下：</p>
+<ul>
+<li><strong>&quot;VERSION &quot;</strong> 是从服务器返回的版本字符串。</li>
+<li><strong>错误消息:</strong></li>
+</ul>
+<figure data-type="image" tabindex="14"><img src="https://rexrock.github.io/post-images/1618444858735.png" alt="enter description here" loading="lazy"></figure>
+<h2 id="3-关于通信">3. 关于通信</h2>
+<h3 id="31-协议">3.1 协议</h3>
+<p>memcached的客户端通过TCP连接与服务器通信（UDP协议的接口也可以使用，详细说明请参考”UDP 协议”部分）。一个给定的运行中的memcached服务器在某个（可配置的）端口上监听连接；客户端连接该端口，发送命令给服务器，读取反馈，最后关闭连接。</p>
+<p>没有必要发送一个专门的命令去结束会话。客户端可以在不需要该连接的时候就关闭它。注意：我们鼓励客户端缓存它们与服务器的连接，而不是每次要存储或读取数据的时候再次重新建立与服务器的连接。memcache同时打开很多连接不会对性能造成到大的影响，这是因为memcache在设计之处，就被设计成即使打开了很多连接（数百或者需要时上千个连接）也可以高效的运行。缓存连接可以节省与服务器建立TCP连接的时间开销（于此相比，在服务器段为建立一个新的连接所做准备的开销可以忽略不计）。</p>
+<p>memcache通信协议有两种类型的数据：文本行和非结构化数据。文本行用来发送从客户端到服务器的命令以及从服务器回送的反馈信息。非结构化的数据用在客户端希望存储或者读取数据时。服务器会以字符流的形式严格准确的返回相应数据在存储时存储的数据。服务器不关注字节序，它也不知道字节序的存在。memcahce对非结构化数据中的字符没有任何限制，可以是任意的字符，读取数据时，客户端可以在前次返回的文本行中确切的知道接下来的数据块的长度。</p>
+<p>文本行通常以“&quot;r&quot;n”结束。非结构化数据通常也是以“&quot;r&quot;n”结束，尽管&quot;r、&quot;n或者其他任何8位字符可以出现在数据块中。所以当客户端从服务器读取数据时，必须使用前面提供的数据块的长度，来确定数据流的结束，二不是依据跟随在字符流尾部的“&quot;r&quot;n”来确定数据流的结束，尽管实际上数据流格式如此。</p>
+<h3 id="32-关键字-keys">3.2 关键字 Keys</h3>
+<p>memcached使用关键字来区分存储不同的数据。关键字是一个字符串，可以唯一标识一条数据。当前关键字的长度限制是250个字符（当然目前客户端似乎没有需求用这么长的关键字）；关键字一定不能包含控制字符和空格。</p>
+<h3 id="33-udp协议">3.3 UDP协议</h3>
+<p>当基于TCP协议的连接数超过TCP连接的上限时，我们可以使用UDP协议来替代。但是UDP协议接口不提供可靠的传输，所以多用在不严格要求成功的操作上；典型的get请求会因为缓存的问题，引起丢失或者不完整的传输。</p>
+<p>每个UDP数据包包含一个简单的帧头，接着就是如TCP协议描述的数据格式的数据流。在当前的实现中，请求必须包含在一个单独的UDP数据包中，但返回可能分散在多个数据包中。（唯一的可以拆分请求数据包的是大的多关键字get请求和set请求，鉴于可靠性相比而言他们更适合用TCP传输。）</p>
+<p>帧头有8字节长，如下是其格式（所有的数字都是16位网络字节序整形，高位在前）：</p>
+<p>0 - 1 请求ID<br>
+2 - 3 序列号<br>
+4 - 5 在当前的消息中含有的数据包的个数<br>
+6-7 保留以后使用，当前必须为0</p>
+<p>请求ID由客户端提供。它的典型值是一个从随机种子开始递增值，实际上客户端可以使用任意的请求ID。服务器的反馈信息中包含了和请求命令中一样的请求ID。客户端凭借这个请求ID区分来自于同一服务器的反馈。每一个包含未知请求ID的数据包，可能是由于延时反馈造成，这些数据包都应该抛弃不用。</p>
+<p>序列号从0到n-1，n是消息中总的数据包的个数。客户端按照序列号排序重组数据包；结果序列中包含了一个完整的如TCP协议一样格式的反馈信息（包含了“&quot;r&quot;n”总结字符串）。</p>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/memcached2/" class="post-title gt-a-link">
+                    Libmemcached客户端UDP/UNIX Domain Sockeet使用方法
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

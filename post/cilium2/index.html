@@ -1,0 +1,379 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>Cilium datapath梳理 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    Cilium datapath梳理
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2021-03-03 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/Xcfbupjum/" class="post-tags">
+                            # Cilium
+                        </a>
+                    
+                        <a href="https://rexrock.github.io/tag/1emxgPk46/" class="post-tags">
+                            # eBPF
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <h2 id="1-cilium-datapath的组成">1. Cilium datapath的组成</h2>
+<h3 id="11-cilium中的流量劫持点">1.1 Cilium中的流量劫持点</h3>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1614297388691.png" alt="cilium datapath" loading="lazy"></figure>
+<p><strong>所以流量劫持从prog类型上可以分为：</strong></p>
+<ul>
+<li>内核层面基于sock的流量劫持，主要用于lb（k8s-proxy）;</li>
+<li>基于端口流量劫持，实现整个datapath的替换；</li>
+</ul>
+<p><strong>置于cilium_host和cilium_net:</strong></p>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1614297440408.png" alt="cilium host" loading="lazy"></figure>
+<h3 id="12-cilium中ebpf-map的构成">1.2 Cilium中ebpf map的构成</h3>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1614297479000.png" alt="the maps of cilium" loading="lazy"></figure>
+<h2 id="2-cilium-datapath加载流程">2. Cilium datapath加载流程</h2>
+<h3 id="21-公共ebpf-map的初始化">2.1 公共ebpf map的初始化</h3>
+<p>cilium有很多公用的ebpf map，这些map在ebpf prog加载前被创建：</p>
+<pre><code>runDaemon() =&gt;NewDaemon() =&gt;Daemon.initMaps()
+</code></pre>
+<ul>
+<li><strong>cilium_call_policy</strong>，PROG_ARRAY，用来装“to-contaner”</li>
+<li><strong>cilium_ct4_global</strong>，CT表，for tcp</li>
+<li><strong>cilium_ct_any4_global</strong>，CT表，for non-tcp</li>
+<li>cilium_events，</li>
+<li><strong>cilium_ipcache</strong>，ip+mask -&gt; sec_label + VETP,如果是本地，则VETP为0</li>
+<li>cilium_ipv4_frag_datagrams</li>
+<li>cilium_lb4_affinity</li>
+<li>cilium_lb4_backends</li>
+<li>cilium_lb4_reverse_nat</li>
+<li>cilium_lb4_reverse_sk</li>
+<li>cilium_lb4_services_v2</li>
+<li>cilium_lb_affinity_match</li>
+<li><strong>cilium_lxc</strong>，本地endpoint对应的netdev，ip -&gt; NETDEV-INFO</li>
+<li>cilium_metrics</li>
+<li>cilium_nodeport_neigh4</li>
+<li>cilium_signals</li>
+<li>cilium_snat_v4_external</li>
+<li><strong>cilium_tunnel_map</strong>，ip -&gt; VETP，只记录非本地的ip</li>
+</ul>
+<h3 id="22-基础网络构建initsh">2.2 基础网络构建(init.sh)</h3>
+<h4 id="221-初始化参数">2.2.1 初始化参数</h4>
+<ul>
+<li>LIB=/var/lib/cilium/bpf，bpf源码所在目录</li>
+<li>RUNDIR=/var/run/cilium/state，工作目录</li>
+<li>IP4_HOST=10.17.0.7，cilium_host的ipv4地址</li>
+<li>IP6_HOST=nil</li>
+<li>MODE=vxlan，网络模式</li>
+<li><strong>NATIVE_DEVS</strong>=eth0，出口网卡，可以手动指定，没指定的话就看默认路由走那个口</li>
+<li>XDP_DEV=nil</li>
+<li>XDP_MODE=nil</li>
+<li>MTU=1500</li>
+<li>IPSEC=false</li>
+<li>ENCRYPT_DEV=nil</li>
+<li>HOSTLB=true</li>
+<li>HOSTLB_UDP=true</li>
+<li>HOSTLB_PEER=false</li>
+<li>CGROUP_ROOT=/var/run/cilium/cgroupv2</li>
+<li>BPFFS_ROOT=/sys/fs/bpf</li>
+<li>NODE_PORT=true</li>
+<li>NODE_PORT_BIND=true</li>
+<li>MCPU=v2</li>
+<li>NODE_PORT_IPV4_ADDRS=eth0=0xc64a8c0</li>
+<li>NODE_PORT_IPV6_ADDRS=nil</li>
+<li>NR_CPUS=64</li>
+</ul>
+<h4 id="222-具体工作">2.2.2 具体工作</h4>
+<p>1）创建了cilium_host和cilium_net；</p>
+<p>2）如果是vxlan模式，添加并设置vxlan口cilium_vxlan；</p>
+<p>3）编译并加载cilium_vxlan相关的prog和map；</p>
+<blockquote>
+<p><strong>2个map：</strong></p>
+<ul>
+<li>cilium_calls_overlay_2，每个endpoint都有自己独立的tail call map，2是init.sh脚本固定写死的ID_WORLD；</li>
+<li>cilium_encrypt_state</li>
+</ul>
+<p><strong>6个prog：</strong></p>
+<ul>
+<li>from-container：bpf_overlay.c</li>
+<li>to-container：bpf_overlay.c</li>
+<li>cilium_calls_overlay_2【1】 = __send_drop_notify：lib/drop.h</li>
+<li>cilium_calls_overlay_2【7】 = tail_handle_ipv4：bpf_overlay.c</li>
+<li>cilium_calls_overlay_2【15】= tail_nodeport_nat_ipv4：lib/nodeport.h</li>
+<li>cilium_calls_overlay_2【17】= tail_rev_nodeport_lb4：lib/nodeport.</li>
+</ul>
+</blockquote>
+<p>4）删除出口网卡已经挂载的ebpf程序（from-netdev和to-netdev）</p>
+<p>5）加载LB相关ebpf和map；</p>
+<pre><code class="language-load">tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_connect6 obj bpf\_sock.o type sockaddr attach\_type connect6 sec connect6
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_post\_bind6 obj bpf\_sock.o type sock attach\_type post\_bind6 sec post\_bind6
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_sendmsg6 obj bpf\_sock.o type sockaddr attach\_type sendmsg6 sec sendmsg6
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_recvmsg6 obj bpf\_sock.o type sockaddr attach\_type recvmsg6 sec recvmsg6
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_connect4 obj bpf\_sock.o type sockaddr attach\_type connect4 sec connect4
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_post\_bind4 obj bpf\_sock.o type sock attach\_type post\_bind4 sec post\_bind4
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_sendmsg4 obj bpf\_sock.o type sockaddr attach\_type sendmsg4 sec sendmsg4
+tc exec bpf pin /sys/fs/bpf/tc/globals/cilium\_cgroups\_recvmsg4 obj bpf\_sock.o type sockaddr attach\_type recvmsg4 sec recvmsg4
+</code></pre>
+<p>6）XDP、FLANNEL、IPSEC相关初始化暂未研究</p>
+<h3 id="23-剩余的初始化工作">2.3 剩余的初始化工作</h3>
+<p>1）cilium_host的datapath</p>
+<pre><code>tc[filter replace dev cilium_host ingress prio 1 handle 1 bpf da obj 554_next/bpf_host.o sec to-host]
+tc[filter replace dev cilium_host egress prio 1 handle 1 bpf da obj 554_next/bpf_host.o sec from-host]
+</code></pre>
+<blockquote>
+<p><strong>说明</strong>：加载了2 + 5 个prog，1个PROG_ARRAY map，1个cilium_policy_00554 map</p>
+<ul>
+<li>PROG：<br>
+from-host、to-host</li>
+<li>PROG_ARRAY_MAP：<br>
+cilium_calls_hostns_00554（554是epid）</li>
+<li>PROG IN PROG_ARRAY_MAP：<br>
+cilium_calls_hostns_00554【1】= __send_drop_notify<br>
+cilium_calls_hostns_00554【7】=  tail_handle_ipv4_from_netdev =&gt; tail_handle_ipv4(ctx,false)<br>
+cilium_calls_hostns_00554【15】= tail_nodeport_nat_ipv4<br>
+cilium_calls_hostns_00554【17】= tail_rev_nodeport_lb4<br>
+cilium_calls_hostns_00554【22】= tail_handle_ipv4_from_host =&gt; tail_handle_ipv4(ctx, true)</li>
+</ul>
+</blockquote>
+<p>2）cilium_net的datapath</p>
+<pre><code>tc[filter replace dev cilium_net ingress prio 1 handle 1 bpf da obj 554_next/bpf_host_cilium_net.o sec to-host]
+</code></pre>
+<blockquote>
+<ul>
+<li><strong>说明</strong>：加载了1 + 5个prog，1个PROG_ARRAY map</li>
+<li>PROG：<br>
+to-host</li>
+<li>PROG_ARRAY_MAP：<br>
+cilium_calls_netdev_00004（4是ifindex，ip link命令可以查看）</li>
+<li>PROG IN PROG_ARRAY_MAP：<br>
+cilium_calls_netdev_00004【1】= __send_drop_notify<br>
+cilium_calls_netdev_00004【7】=  tail_handle_ipv4_from_netdev =&gt; tail_handle_ipv4(ctx,false)<br>
+cilium_calls_netdev_00004【15】= tail_nodeport_nat_ipv4<br>
+cilium_calls_netdev_00004【17】= tail_rev_nodeport_lb4<br>
+cilium_calls_netdev_00004【22】= tail_handle_ipv4_from_host =&gt; tail_handle_ipv4(ctx, true)</li>
+</ul>
+</blockquote>
+<p>3）eth0的datapath</p>
+<pre><code>tc[filter replace dev eth0 ingress prio 1 handle 1 bpf da obj 554_next/bpf_netdev_eth0.o sec from-netdev]
+tc[filter replace dev eth0 egress prio 1 handle 1 bpf da obj 554_next/bpf_netdev_eth0.o sec to-netdev]
+</code></pre>
+<blockquote>
+<p>**说明：**加载了2+5个prog，1个PROG_ARRAY map</p>
+<ul>
+<li>PROG：<br>
+from-netdev、to-netdev</li>
+<li>PROG_ARRAY_MAP：<br>
+cilium_calls_netdev_00002（4是ifindex，ip link命令可以查看）</li>
+<li>PROG IN PROG_ARRAY_MAP：<br>
+cilium_calls_netdev_00002【1】= __send_drop_notify<br>
+cilium_calls_netdev_00002【7】=  tail_handle_ipv4_from_netdev =&gt; tail_handle_ipv4(ctx,false)<br>
+cilium_calls_netdev_00002【15】= tail_nodeport_nat_ipv4<br>
+cilium_calls_netdev_00002【17】= tail_rev_nodeport_lb4<br>
+cilium_calls_netdev_00002【22】= tail_handle_ipv4_from_host =&gt; tail_handle_ipv4(ctx, true)</li>
+</ul>
+</blockquote>
+<p>4）lxc_health的datapath，<strong>跟增加一个pod的datapath是完全一样的</strong></p>
+<pre><code>tc[filter replace dev lxc_health ingress prio 1 handle 1 bpf da obj 908_next/bpf_lxc.o sec from-container]
+</code></pre>
+<blockquote>
+<p><strong>说明</strong>：加载了1+4+1个prog，1个PROG_ARRAY map，1个cilium_policy_00908 map</p>
+<ul>
+<li>PROG：<br>
+from-container</li>
+<li>PROG IN PROG_ARRAY_MAP：<br>
+cilium_calls_00908【1】=  __send_drop_notify<br>
+cilium_calls_00908【6】= tail_handle_arp<br>
+cilium_calls_00908【15】= tail_nodeport_nat_ipv4<br>
+cilium_calls_00908【17】= tail_rev_nodeport_lb4<br>
+cilium_call_policy[908] = handle_policy(to-container好像已经废弃了)</li>
+</ul>
+</blockquote>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/cilium1/" class="post-title gt-a-link">
+                    Cilium简介
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

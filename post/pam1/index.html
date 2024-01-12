@@ -1,0 +1,292 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>PAM介绍 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    PAM介绍
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2013-08-26 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/5e9-yE8rL-/" class="post-tags">
+                            # PAM
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <h2 id="1-pam概述">1. Pam概述</h2>
+<p>PAM（Pluggable Authentication Modules ）是由Sun提出的一种认证机制。它通过提供一些动态链接库和一套统一的API，将系统提供的服务和该服务的认证方式分开，使得系统管理员可以灵活地根据需要给不同的服务配置不同的认证方式而无需更改服务程序，同时也便于向系统中添加新的认证手段。</p>
+<h2 id="2-pam框架">2. Pam框架</h2>
+<p>pam框架有以下四部分组成：</p>
+<ul>
+<li>PAM 应用程序，也称为消费方;</li>
+<li>PAM 库;</li>
+<li>PAM 配置文件;</li>
+<li>PAM 服务模块，也称为提供者;</li>
+</ul>
+<p>该框架可为与验证相关的活动提供统一的执行方式。采用该方式，应用程序开发者可使用 PAM 服务，而不必了解策略的语义。算法是集中提供的。可以独立于各个应用程序对算法进行修改。借助 PAM，管理员可以根据特定系统的需要调整验证过程，而不必更改任何应用程序。调整是通过 PAM 配置文件 pam.conf 来执行的。</p>
+<p>下图说明了 PAM 体系结构。应用程序通过 PAM 应用编程接口 (application programming interface, API) 与 PAM 库进行通信。PAM 模块通过 PAM 服务提供者接口 (service provider interface, SPI) 与 PAM 库进行通信。通过这种方式，PAM 库可使应用程序和模块相互进行通信。</p>
+<figure data-type="image" tabindex="1"><img src="https://rexrock.github.io/post-images/1617149921990.png" alt="enter description here" loading="lazy"></figure>
+<h2 id="3-pam服务模块">3. Pam服务模块</h2>
+<p>PAM 服务模块是一个共享库（动态链接库），用于为系统登录应用程序（如 login、rlogin 和 telnet）提供验证和其他安全服务。四种类型的PAM服务是：</p>
+<ol>
+<li>验证服务模块 用于授予用户访问帐户或服务的权限。提供此服务的模块可以验证用户并设置用户凭证。pam_authenticate () | pam_setcred ()</li>
+<li>帐户管理模块 用于确定当前用户的帐户是否有效。提供此服务的模块可以检查口令或帐户的失效期以及限时访问。pam_acc_mgmt ()</li>
+<li>会话管理模块 用于设置和终止登录会话。pam_open_session () | pam_close_session ()</li>
+<li>口令管理模块 用于强制实施口令强度规则并执行验证令牌更新。pam_chauthok ()</li>
+</ol>
+<p>一个 PAM 模块可以实现其中的一项或多项服务。将简单模块用于明确定义的任务中可以增加配置灵活性。因此，应该在不同的模块中实现PAM服务。然后，可以按照 pam.conf 文件中定义的方式根据需要使用这些服务。</p>
+<p>每个使用PAM认证的应用程序都以pam_start开始，pam_end结束。实际做认证工作的API函数有六个（以下将这六个函数简称为认证API）：</p>
+<figure data-type="image" tabindex="2"><img src="https://rexrock.github.io/post-images/1617149984619.png" alt="enter description here" loading="lazy"></figure>
+<p>应用程序的API还有很多，但是服务模块的API只有6个，如下图：<br>
+<img src="https://rexrock.github.io/post-images/1617149998844.png" alt="enter description here" loading="lazy"></p>
+<p>其中应用程序API的函数原型均为：</p>
+<pre><code>int
+pam_xxx(    
+pam_handle_t *pamh, //传递给SPI的参数，对应SPI参数中的pamh
+int flags //传递给SPI的参数，对应SPI参数中的flags
+);
+</code></pre>
+<p>其中服务模块SPI的函数原型均为：</p>
+<pre><code>PAM_EXTERN int
+pam_sm_xxx(    //本文中红色标记处为SPI参数的来源
+pam_handle_t *pamh,
+ int flags,
+ int argc,
+ const char **argv
+);
+</code></pre>
+<h2 id="4-pam库">4. Pam库</h2>
+<p>PAM 库 libpam 是PAM体系结构中的中心元素：</p>
+<ol>
+<li>libpam 可以导出 API pam。应用程序可以调用此API以执行验证、帐户管理、凭证建立、会话管理以及口令更改。</li>
+<li>libpam 可以导入主配置文件 pam.conf。PAM 配置文件可指定每种可用服务的PAM模块要求。pam.conf 由系统管理员进行管理。</li>
+<li>libpam 可以导入SPI pam_sm，而导出则由服务模块完成。</li>
+</ol>
+<h2 id="5-pam配置文件etcpamconf">5. Pam配置文件（/etc/pam.conf）</h2>
+<p>该文件是由如下的5项所组成的：<br>
+<img src="https://rexrock.github.io/post-images/1617150114707.png" alt="enter description here" loading="lazy"></p>
+<h3 id="51-service-name">5.1 service-name</h3>
+<p>应用的名字，比如telnet、login、ftp等，服务名字“OTHER”代表所有没有在该文件中明确配置的其它服务。</p>
+<h3 id="52-module-type">5.2 module-type</h3>
+<p>模块类型有四种：auth、account、session、password，即对应PAM所支持的四种管理方式。同一个服务可以调用多个 PAM模块进行认证，这些模块构成一个stack。</p>
+<h3 id="53-control-flag">5.3 control-flag</h3>
+<ol>
+<li>用来告诉PAM库该如何处理与该服务相关的PAM模块的成功或失败情况。它有四种可能的 值：required，requisite，sufficient，optional。</li>
+<li>required 表示本模块必须返回成功才能通过认证，但是如果该模块返回失败的话，失败结果也不会立即通知用户，而是要等到同一stack 中的所有模块全部执行完毕再将失败结果返回给应用程序。可以认为是一个必要条件。</li>
+<li>requisite 与required类似，该模块必须返回成功才能通过认证，但是一旦该模块返回失败，将不再执行同一stack内的任何模块，而是直 接将控制权返回给应用程序。是一个必要条件。注：这种只有RedHat支持，Solaris不支持。</li>
+<li>sufficient 表明本模块返回成功已经足以通过身份认证的要求，不必再执行同一stack内的其它模块，但是如果本模块返回失败的话可以 忽略。可以认为是一个充分条件。</li>
+<li>optional表明本模块是可选的，它的成功与否一般不会对身份认证起关键作用，其返回值一般被忽略。</li>
+<li>Binding</li>
+</ol>
+<h3 id="54-module-path">5.4 module-path</h3>
+<p>用来指明本模块对应的程序文件的路径名，一般采用绝对路径，如果没有给出绝对路径，默认该文件在目录/usr/lib/security下 面。</p>
+<h3 id="55-arguments此处的参数传递给spi对应着spi参数中的-argc-和-argv">5.5 arguments（此处的参数传递给SPI,对应着SPI参数中的 argc 和 argv）</h3>
+<p>是用来传递给该模块的参数。一般来说每个模块的参数都不相同，可以由该模块的开发者自己定义，但是也有以下几个共同 的参数：</p>
+<ol>
+<li>debug  该模块应当用syslog( )将调试信息写入到系统日志文件中。</li>
+<li>no_warn  表明该模块不应把警告信息发送给应用程序。</li>
+<li>use_first_pass  表明该模块不能提示用户输入密码，而应使用前一个模块从用户那里得到的密码。</li>
+<li>ry_first_pass  表明该模块首先应当使用前一个模块从用户那里得到的密码，如果该密码验证不通过，再提示用户输入新的密码。</li>
+<li>use_mapped_pass  该模块不能提示用户输入密码，而是使用映射过的密码。</li>
+<li>expose_account  允许该模块显示用户的帐号名等信息，一般只能在安全的环境下使用，因为泄漏用户名会对安全造成一定程度的威 胁。</li>
+</ol>
+<p>如果对于该服务的操作（如验证或帐户管理）/etc/pam.conf 仅包含一个模块，则该模块的结果将确定操作的结果。</p>
+<p>如果为服务操作定义了多个模块，那么这些模块就堆叠起来，即，对于该服务存在一个 PAM 堆栈。下图说明如何为每种类型的控制标志记录成败信息</p>
+<figure data-type="image" tabindex="3"><img src="https://rexrock.github.io/post-images/1617150280915.png" alt="enter description here" loading="lazy"></figure>
+<p>其实在linux系统中，/etc/pam.conf这个配置文件已经起不到什么作用了，因为它的作用完全被/etc/pam.d/中“对应”的配置文件代替了。/etc/pam.d/中“对应”的配置文件就是以/etc/pam.conf中service-name项的“值”命名的。如下图所示：</p>
+<figure data-type="image" tabindex="4"><img src="https://rexrock.github.io/post-images/1617150296607.png" alt="enter description here" loading="lazy"></figure>
+<p>上图中service-name的值为myyanzheng，那么在/etc/pam.d/中就有这样一个名字为myyanzheng的文件，其内容如下图所示：</p>
+<figure data-type="image" tabindex="5"><img src="https://rexrock.github.io/post-images/1617150313336.png" alt="enter description here" loading="lazy"></figure>
+<p>可以看到上图中配置文件myyanzheng的内容只比/etc/pam.conf少了service-name一项，之所少这一项，因为该配置文件的名字就是service-name。</p>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/ass1/" class="post-title gt-a-link">
+                    汇编实现hello world程序
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

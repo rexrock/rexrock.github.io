@@ -1,0 +1,684 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>深入浅出vhostuser传输模型 | REXROCK</title>
+
+<link rel="shortcut icon" href="https://rexrock.github.io/favicon.ico?v=1705030317027">
+
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://rexrock.github.io/styles/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@2.27.0/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js"></script>
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            REXROCK
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+        <div style="text-align: center">
+            <form id="gridea-search-form" style="position: relative" data-update="1705030317027" action="/search/index.html">
+                <input class="search-input" autocomplete="off" spellcheck="false" name="q" placeholder="搜索文章" />
+                <i class="fas fa-search gt-c-content-color-first" style="position: absolute; top: 9px; left: 10px;"></i>
+            </form>
+        </div>
+    </div>
+</nav>
+
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    深入浅出vhostuser传输模型
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2020-03-03 ·
+                    </time>
+                    
+                        <a href="https://rexrock.github.io/tag/a860if7hz/" class="post-tags">
+                            # VIRTIO
+                        </a>
+                    
+                </div>
+                <div class="post-content">
+                    <h2 id="1-virtio的ring结构">1. virtio的ring结构</h2>
+<p>Virtio设备是支持多队列，每个队列由结构vring_virtqueue定义（可以是收包队列也可以是发包队列），而每个vring_virtqueue中都定义了一个vring结构，负责具体的数据传输。</p>
+<pre><code>// include/uapi/linux/virtio_ring.h
+struct vring {
+        unsigned int num;
+
+        struct vring_desc *desc;
+
+        struct vring_avail *avail;
+
+        struct vring_used *used;
+};
+</code></pre>
+<p>可见，ving不是一个ring环，而是包含了三个ring环，利用着三个ring环实现报文的收发。我们通过一张图来描述三个ring环的作用及关系：<br>
+<img src="https://rexrock.github.io/post-images/1615334196092.png" alt="enter description here" loading="lazy"></p>
+<p><strong>1. vring_desc</strong><br>
+Struct vring_desc并没有定义一个ring环，而是定义了ring环中每个元素的结构。上图中已经对vring_desc各成员做了注解。Desc ring没有消费者和生产者，我们可以把它看作一块用来交互数据的共享内存。</p>
+<blockquote>
+<p>说明：vring_desc结构中的addr成员，在Guest向外发包的场景中，指向的是一块承载了发包数据的内存，而在Guest从外面收包的场景中，指向的是一块预分配好的空内存，Host会将收到的包存放到这块空内存中。</p>
+</blockquote>
+<p><strong>2. vring_avail</strong><br>
+Struct vring_avail是定义了一个ring环的（即成员ring[]），这个ring环的生产者是Guest中的virtio-net，消费者是Host中vhostuser/vhostnet。Avail ring环中每个元素即指向desc ring的下标。</p>
+<blockquote>
+<p>说明：Avail ring和desc ring的长度都是一样的，但是avail ring并不会指向desc ring的每一个desc。例如有些skb是由多个分片组成的（scattergather），那么这个skb实际会被转换成多个desc，并且通过vring_desc中的next将多个desc链接在一起，最后一个desc通过flag标记结束。那么这种情况下，Avail ring只会存储第一个desc的下标，同时vring_avail的idx也只累加1。</p>
+</blockquote>
+<p><strong>3. vring_used</strong><br>
+Struct vring_used跟vring_avail类似，不过used ring的生产者是vhostnet/vhostuser，消费者是virtio-net。</p>
+<blockquote>
+<p>说明：used ring中的每个元素包含两个成员id和len，id指向desc ring中的下标，而len则指向desc中所存储数据的长度(通常len成员只在Guest从外面收包的场景中才有效，这个时候desc中len指的是内存中可以最大存储的数据的长度，而user ring中的len指的则是内存中实际存储的数据的长度）。</p>
+</blockquote>
+<p>那么这三个ring在内存中是怎么分布的呢？我们通过一张图描述下：<br>
+<img src="https://rexrock.github.io/post-images//1615334206753.png" alt="enter description here" loading="lazy"></p>
+<p>如图，三个ring是分布在一块连续的内存中的（物理/虚拟地址都是连续的）。最前面是desc ring，接下来是avail ring，最后是used ring。</p>
+<h2 id="2-将vring映射到vhostuser">2. 将vring映射到vhostuser</h2>
+<p>Virtio队列中的vring是由Guest中的virtio-net驱动申请的，那么vhostuser如何操作这些vring呢？答案是virtio-net在申请好vring后需要将vring的地址告诉vhostuser。我们通过一张图，看一下虚拟机启动时所涉及到的内存注册过程：<br>
+<img src="https://rexrock.github.io/post-images/1615335007124.png" alt="enter description here" loading="lazy"></p>
+<p>如上图所示，整个内存注册过程分为三个步骤：<br>
+<strong>第一步：</strong><br>
+QEMU未虚拟机申请内存，并将虚拟机的整个内存注册到vhostuser。你没看错，确实是需要将虚拟机的整个内存都注册到vhostuser驱动中。</p>
+<blockquote>
+<p>说明：Vhostuser和QEMU通过unix socket建立了通信连接，两者通过该连接进行协商。</p>
+</blockquote>
+<p><strong>第二步：</strong><br>
+Guest中的virtio-net驱动申请队列（即virtqueue），并将队列中的vring地址同步给QEMU。</p>
+<pre><code>// 追踪从virtio-net开始初始化到创建virtqueue，函数位置：linux-kernel-src/drivers/virtio/
+|virtio_pci_probe
+| |virtio_pci_legacy_probe / virtio_pci_modern_probe
+| |	|setup_vq
+| |	| |vring_create_virtqueue
+| | | | |vring_create_virtqueue_split
+| | | | | |void *queue = vring_alloc_queue // 申请vring的地址
+| | | | | |vring_init(struct vring *, queue)
+| | | | | |__vring_create_virtqueue
+| | | |iowrite32(VIRTIO_PCI_QUEUE_PFN) // 将vring_addr注册到QEMU
+</code></pre>
+<blockquote>
+<p>说明：Virtio-net和QEMU之间的通信不是通过什么scoket，而是由virtio-net向一段特定的io空间写数据实现的。不单单QEMU是这样做的，包括VMWARE也是这么做的（XEN不熟悉）。同理，QEMU向GUEST发起的数据请求也都是都通过IO实现的。</p>
+</blockquote>
+<p><strong>第三步：</strong><br>
+QEMU在enable每个virtqueu的时候，会将virtqueue中三个vring的长度及地址注册到vhostuser。并且初始化三个vring中消费者/生产者的位置。</p>
+<pre><code>// vhostuser中相关协商处理函数
+static vhost_message_handler_t vhost_message_handlers[VHOST_USER_MAX] = {
+	......
+	[VHOST_USER_SET_VRING_NUM] = vhost_user_set_vring_num,
+	[VHOST_USER_SET_VRING_ADDR] = vhost_user_set_vring_addr,
+	[VHOST_USER_SET_VRING_BASE] = vhost_user_set_vring_base,
+	......
+};
+</code></pre>
+<h2 id="3-guest向外发包">3. Guest向外发包</h2>
+<pre><code>// 函数位置：linux-kernel-src/drivers/net/virtio-net.c
+|start_xmit
+| |free_old_xmit_skbs // 每次发包前，先清理上一次已成功发送的包
+| |xmit_skb
+| | |virtqueue_add_outbuf
+| | | |virtqueue_add
+| | | | |virtqueue_add_split
+</code></pre>
+<p>这里面virtqueue_add()是一个通用的函数，不管收包还是发包，都是通过调用virtqueue_add()函数实现：</p>
+<pre><code>static inline int virtqueue_add(struct virtqueue *_vq,
+                                struct scatterlist *sgs[],
+                                unsigned int total_sg,
+                                unsigned int out_sgs,
+                                unsigned int in_sgs,
+                                void *data,
+                                void *ctx,
+                                gfp_t gfp)；
+</code></pre>
+<p><strong>参数解析：</strong></p>
+<ul>
+<li>_vq，没什么好解释的，virtqueue被包含在vring_virtqueue中，几乎跟vring传输相关的所有内容都定义在vring_virtqueue中；</li>
+<li>sgs，元素为scatterlist的列表；这里需要额外注意，每个scatterlist本身也是一个列表；举个例子，一个skb可以由多个分片构成，多个分片内存上是不连续的，在没有scatter-gather之前或者禁用scatter-gather的情况下，驱动需要将所有分片拷贝到一块连续的内存上，而开启scatter-gather后，我们不必再重新拷贝报文分片，直接通过scattherlist将报文的多个分片串联起来，供网卡驱动使用。可以说scatterlist是skb在网卡驱动中的表示；</li>
+<li>total_sg，所有scatterlist中分片加起来的总数，每个分片都占用一个独立的desc，所以total_sg表明接下来要消耗的desc总数；</li>
+<li>out_sgs，sgs中有多少是out_sg；<br>
+【说明】：scatterlist是分为out_sg（只读）和in_sg（可读可写）两种类型的。当Guest发送报文的时候，使用out_sg，当Guest打算收包，需要先将可承载报文数据的内存通过desc ring传递到vhost的时候，就使用in_sg。此外需要注意，我们发包的时候，只会传递out_sg给virtqueue_add()，收包的时候只传递in_sg给virtqueue_add()，还有一种通过virtqueue进行前后端协商和管理的virtqueue，会同时传递out_sg和in_sg给virtqueue_add（）。</li>
+<li>int_sgs，sgs中有多少是in_sg；</li>
+<li>data，要传输的内存起始地址；<br>
+【说明】：在发包场景中，就是要发送的skb的地址，注意是虚拟地址，而我们赋值给desc-&gt;addr是物理地址，那么这个data有啥用呢？用处就是这个报文被vhost成功处理发送后，virtio-net会通过used ring再次获取到已经被成功发送的报文，这个时候virtio-net需要释放报文，那么直接引用这个data指向的虚拟地址释放就可以了。<br>
+【说明】：在收包场景中类似，virtio-net填充预申请的空白内存给vhostuser收包，收到的报文会通过used ring再送回到virtio-net中，这个时候直接引用data即可对内存中的报文数据进行操作了。<br>
+【说明】：那么data存储再哪呢？下面代码解析里有介绍。</li>
+<li>ctx，跟indirect相关，暂时不管；</li>
+<li>gfp，跟indirect相关，暂时不管；</li>
+</ul>
+<p><strong>virtqueue_add_split函数源码分析：</strong><br>
+说明：packed queus是virtio 1.1引入的新特性，我们暂时不管，先分析老的split模式。</p>
+<pre><code>static inline int virtqueue_add_split(struct virtqueue *_vq,
+                                      struct scatterlist *sgs[],
+                                      unsigned int total_sg,
+                                      unsigned int out_sgs,
+                                      unsigned int in_sgs,
+                                      void *data,
+                                      void *ctx,
+                                      gfp_t gfp)
+{
+		......
+		} else {
+		// 非indirect模式
+                indirect = false;
+                desc = vq-&gt;split.vring.desc;
+                i = head;
+                descs_used = total_sg;
+        }
+		......
+		// 如果desc ring没有空间了，赶紧通知vhost处理报文好腾地方
+        if (vq-&gt;vq.num_free &lt; descs_used) {
+                pr_debug(&quot;Can't add buf len %i - avail = %i\n&quot;,
+                         descs_used, vq-&gt;vq.num_free);
+                /* FIXME: for historical reasons, we force a notify here if
+                 * there are outgoing parts to the buffer.  Presumably the
+                 * host should service the ring ASAP. */
+                if (out_sgs)
+                        vq-&gt;notify(&amp;vq-&gt;vq);
+                if (indirect)
+                        kfree(desc);
+                END_USE(vq);
+                return -ENOSPC;
+        }
+		......
+		// *************************************************************************
+		// 第一步，填充desc ring
+		// 本函数最核心的代码了，out_sg和in_sg的存放位置也是有讲究的，当同时又两种scatterlist时，
+		// out_sg总是被放在前面，in_sg被存储在out_sg后面；
+		for (n = 0; n &lt; out_sgs; n++) {
+                for (sg = sgs[n]; sg; sg = sg_next(sg)) {
+						// 这里需要注意的是，通过desc-&gt;addr传递给vhost的是Guest的物理地址
+                        dma_addr_t addr = vring_map_one_sg(vq, sg, DMA_TO_DEVICE);
+                        if (vring_mapping_error(vq, addr))
+                                goto unmap_release;
+
+                        desc[i].flags = cpu_to_virtio16(_vq-&gt;vdev, VRING_DESC_F_NEXT);
+                        desc[i].addr = cpu_to_virtio64(_vq-&gt;vdev, addr);
+                        desc[i].len = cpu_to_virtio32(_vq-&gt;vdev, sg-&gt;length);
+                        prev = i;
+                        i = virtio16_to_cpu(_vq-&gt;vdev, desc[i].next);
+                }
+        }
+        for (; n &lt; (out_sgs + in_sgs); n++) {
+                for (sg = sgs[n]; sg; sg = sg_next(sg)) {
+                        dma_addr_t addr = vring_map_one_sg(vq, sg, DMA_FROM_DEVICE);
+                        if (vring_mapping_error(vq, addr))
+                                goto unmap_release;
+
+                        desc[i].flags = cpu_to_virtio16(_vq-&gt;vdev, VRING_DESC_F_NEXT | VRING_DESC_F_WRITE);
+                        desc[i].addr = cpu_to_virtio64(_vq-&gt;vdev, addr);
+                        desc[i].len = cpu_to_virtio32(_vq-&gt;vdev, sg-&gt;length);
+                        prev = i;
+                        i = virtio16_to_cpu(_vq-&gt;vdev, desc[i].next);
+                }
+        }
+        /* Last one doesn't continue. */
+		// OK，对于发包场景，上面所有desc都是一个SKB的，现在这个SKB填充完毕，需要通过flag标记
+		// desc的结束，前面介绍desc ring的时候介绍过，所有desc通过next成员链在一起，并且通过flag
+		// 标记一个报文存储的结束。
+        desc[prev].flags &amp;= cpu_to_virtio16(_vq-&gt;vdev, ~VRING_DESC_F_NEXT);
+		
+		/* We're using some buffers from the free list. */
+		// 用了多少，得从num_free中减掉
+        vq-&gt;vq.num_free -= descs_used;
+
+        /* Update free pointer */
+        if (indirect)
+				......
+        else
+				// 更新下一次开始填充的desc下标
+                vq-&gt;free_head = i;
+		......
+		// vring_virtqueue又自己维护了一个跟desc ring长度相同的数组，专门用来存储对应desc中内存
+		// 对应的虚拟地址
+		vq-&gt;split.desc_state[head].data = data;
+		......
+		/* Put entry in available array (but don't update avail-&gt;idx until they
+         * do sync). */
+        // *************************************************************************
+		// 第二步，填充avail ring
+		// 上面是desc ring的填充，下main开始填充avail ring了，可以看到只需要将第一个desc
+		// 填充到avail ring即可
+        avail = vq-&gt;split.avail_idx_shadow &amp; (vq-&gt;split.vring.num - 1);
+        vq-&gt;split.vring.avail-&gt;ring[avail] = cpu_to_virtio16(_vq-&gt;vdev, head);
+		
+        /* Descriptors and available array need to be set before we expose the
+         * new available array entries. */
+        // 累加avail ring的生产者计数
+        virtio_wmb(vq-&gt;weak_barriers);
+        vq-&gt;split.avail_idx_shadow++;
+        vq-&gt;split.vring.avail-&gt;idx = cpu_to_virtio16(_vq-&gt;vdev,
+                                                vq-&gt;split.avail_idx_shadow);
+		// *************************************************************************
+		// num_added主要跟通知机制有关，下面章节详细介绍
+        vq-&gt;num_added++;
+
+        pr_debug(&quot;Added buffer head %i to %p\n&quot;, head, vq);
+        END_USE(vq);
+
+        /* This is very unlikely, but theoretically possible.  Kick
+         * just in case. */
+        if (unlikely(vq-&gt;num_added == (1 &lt;&lt; 16) - 1))
+                virtqueue_kick(_vq);
+		......
+</code></pre>
+<h2 id="4-guest从外面收包">4. Guest从外面收包</h2>
+<pre><code>|virtnet_poll()
+| |virtnet_receive()
+| | |virtqueue_get_buf()
+| | | |detach_buf()
+| | |receive_buf()
+| | |try_fill_recv()
+| | | |add_recebuf_xxx()
+| | | | |virtqueue_add_xxx()
+| | | | | |virtqueue_add()	
+| | | |virqueue_kick()
+</code></pre>
+<p>我们从virtqueue_get_buf()函数开始看。该函数执行的是收包函数的第一步，还是以split模式为例，该函数会根据模式选择最终调用到virtqueue_get_buf_ctx_split()函数：</p>
+<pre><code>static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
+                                         unsigned int *len,
+                                         void **ctx)
+{
+		// 注意：该函数每次只收一个包
+		......
+		// 这一步先判断下used ring里有没有未处理的成员。贴一下more_used_split（）的代码：
+		// return vq-&gt;last_used_idx != 
+		//                    virtio16_to_cpu(vq-&gt;vq.vdev, vq-&gt;split.vring.used-&gt;idx);
+		// ***************************************************************************
+		// 这里需要说明的是，vring_virtqueue中定义了一个成员叫last_used_idx，last_used_idx是
+		// virtio-net消费used ring的下标+1，也就是这一次将从last_used_idx这个位置开始消费used 
+		// ring。而vring_used中的idx则是由生产者（也就是vhost）填充的，表示下一次将要填充的used 
+		// ring的下标。
+		// ***************************************************************************
+		// 说明：Vring_avail和vring_used中的idx都是生产者填充的，而消费者都会在各自的virtqueue的
+		// 结构中定义一个last_xxx_idx，表示上次消费的截至位置，以及下一次开始消费的位置。
+        if (!more_used_split(vq)) {
+                pr_debug(&quot;No more buffers in queue\n&quot;);
+                END_USE(vq);
+                return NULL;
+        }
+		
+        /* Only get used array entries after they have been exposed by host. */
+        virtio_rmb(vq-&gt;weak_barriers);
+
+		// 获取要消费的used ring的下标
+        last_used = (vq-&gt;last_used_idx &amp; (vq-&gt;split.vring.num - 1));
+        // 从used成员中获取指向的desc ring中的下标
+		i = virtio32_to_cpu(_vq-&gt;vdev,
+                        vq-&gt;split.vring.used-&gt;ring[last_used].id);
+		// 获取这个报文的实际长度
+		// 注意：这个报文可能是由多个desc构成的，下面的len是指所有desc中报文的总长度，并且报文的存
+		// 储总是前面desc满了之后，再向下一个desc中存储数据。
+        *len = virtio32_to_cpu(_vq-&gt;vdev,
+                        vq-&gt;split.vring.used-&gt;ring[last_used].len);
+
+		// 如果这个desc ring的下标超过数组长度，则发生错误。
+		// ***************************************************************************
+		// 特别注意：
+		// 细心的同学可能已经发现，avail ring和used ring的生产者/消费者下标是不断累加的，然后使用
+		// 的时候做一下“idx&amp;(vring_num-1)”的操作来保证访问不越界。但是我们使用desc ring的下标并不
+		// 是不断累加的，而是每次通过desc的next成员获取到的（观察上面virtqueue_add函数得分析）。所
+		// 以我们从avail ring和used ring中获取得desc下标是直接得下标，不存在越界。
+        if (unlikely(i &gt;= vq-&gt;split.vring.num)) {
+                BAD_RING(vq, &quot;id %u out of range\n&quot;, i);
+                return NULL;
+        }
+		// ***************************************************************************
+		// 这个data前面介绍过了
+        if (unlikely(!vq-&gt;split.desc_state[i].data)) {
+                BAD_RING(vq, &quot;id %u is not a head!\n&quot;, i);
+                return NULL;
+        }
+
+        /* detach_buf_split clears data, so grab it now. */
+        ret = vq-&gt;split.desc_state[i].data;
+		// OK，报文已成功提取，释放掉这个desc，如果占用了多个desc，会在detach_buf_split中一起
+		// 释放（通过flag标记结束）。
+        detach_buf_split(vq, i, ctx);
+		// 累加消费者下标
+        vq-&gt;last_used_idx++;
+        /* If we expect an interrupt for the next entry, tell host
+         * by writing event index and flush out the write before
+         * the read in the next get_buf call. */
+        if (!(vq-&gt;split.avail_flags_shadow &amp; VRING_AVAIL_F_NO_INTERRUPT))
+                virtio_store_mb(vq-&gt;weak_barriers,
+                                &amp;vring_used_event(&amp;vq-&gt;split.vring),
+                                cpu_to_virtio16(_vq-&gt;vdev, vq-&gt;last_used_idx));
+
+        LAST_ADD_TIME_INVALID(vq);
+
+        END_USE(vq);
+		// 返回指向报文的虚拟机地址
+        return ret;
+</code></pre>
+<h2 id="5-vhost从guest收包">5. Vhost从Guest收包</h2>
+<p>我们选择DPDK-20.11的代码进行分析，因为这个版本vhostuser的收包代码非场简洁。在DPDK-20.08之前，vhostuser驱动支持zerocopy功能，但是在DPDK-20.08中zerocopy被移除了。因为zerocopy虽然带来了性能的提升，却让代码变得复杂且难以维护，同时zerocopy在VPC场景存在使用限制，复杂的代码也给virtio一些新功能添加也带来的阻碍，种种因素导致zerocopy最终被社区抛弃。今后virtio性能优化的方向主要时通过硬件的方式进行，例如通过CPU的CBDMA引擎加速拷贝，或者通过支持virtio offload的网卡进行卸载加速。</p>
+<pre><code>|rte_vhost_dequeue_burst()
+| |virtio_dev_tx_split()
+| | |for() // 处理所有报文（最多不超过32个，可配）
+| | | |fill_vec_buf_split()
+| | | | |while() // 处理该报文下所有的desc（通过desc.next串起的list）
+| | | | | |map_one_desc()
+| | | | | | |vhost_iova_to_vva()
+| | | | | | | |rte_vhost_va_from_guest_pa()
+| | | |copy_desc_to_mbuf()
+</code></pre>
+<p>继续贯彻深入浅出原则，咱们先看rte_vhost_va_from_guest_pa()函数，该函数主要实现将desc-&gt;addr这个Guest的物理地址（后面简称GPA）转换成DPDK进程中可以直接访问虚拟地址（后面简称VVA，虽然通常大家喜欢称之为HVA，但是我们跟着DPDK里面定义的VVA叫吧，大家知道怎么回事就行了）。</p>
+<p><strong>特别介绍：</strong><br>
+在分析rte_vhost_va_from_guest_pa()函数之前，有必要先介绍一下rte_vhost_memory和rte_vhost_mem_region 这2个结构，前面第2节曾提到，VM虚拟机启动的时候的QEMU会将虚拟机整个内存都注册到vhostuser驱动中，那么虚拟机的内存信息存储在哪呢？答案就是由rte_vhost_memory结构负责存储：</p>
+<pre><code>// 每个rte_vhost_mem_region对应一个page
+struct rte_vhost_memory {
+	// region个数
+	uint32_t nregions;
+	// region数组
+	struct rte_vhost_mem_region regions[];
+};
+
+struct rte_vhost_mem_region {
+	// 就是这个region在Guest中的物理地址
+	uint64_t guest_phys_addr;
+	// 主要在QEMU把vring注册过来的时候用到，Guest中的虚拟地址？TODO
+	uint64_t guest_user_addr;
+	// region映射到DPDK进程后的虚拟地址
+	uint64_t host_user_addr;
+	// region的长度
+	uint64_t size;
+	void	 *mmap_addr;
+	uint64_t mmap_size;
+	int fd;
+};
+</code></pre>
+<p>我们再来分析rte_vhost_va_from_guest_pa()函数：</p>
+<pre><code>__rte_experimental
+static __rte_always_inline uint64_t
+rte_vhost_va_from_guest_pa(struct rte_vhost_memory *mem,
+						   uint64_t gpa, uint64_t *len)
+{
+	struct rte_vhost_mem_region *r;
+	uint32_t i;
+	// 其实就是拿报文的gpa在vhostuser维护的mem_regions中逐个对比，看属于
+	// 哪个page，然后报文在vhostuser中的vva = page-&gt;vva + （gpa - page-&gt;gpa）
+	for (i = 0; i &lt; mem-&gt;nregions; i++) {
+		r = &amp;mem-&gt;regions[i];
+		if (gpa &gt;= r-&gt;guest_phys_addr &amp;&amp;
+		    gpa &lt;  r-&gt;guest_phys_addr + r-&gt;size) {
+
+			if (unlikely(*len &gt; r-&gt;guest_phys_addr + r-&gt;size - gpa))
+				*len = r-&gt;guest_phys_addr + r-&gt;size - gpa;
+
+			return gpa - r-&gt;guest_phys_addr +
+			       r-&gt;host_user_addr;
+		}
+	}
+	*len = 0;
+
+	return 0;
+}
+</code></pre>
+<p>vhost_iova_to_vva()是个封装函数，我们不用管。直接看map_one_desc()函数：</p>
+<pre><code>static __rte_always_inline int
+map_one_desc(struct virtio_net *dev, struct vhost_virtqueue *vq,
+		struct buf_vector *buf_vec, uint16_t *vec_idx,
+		uint64_t desc_iova, uint64_t desc_len, uint8_t perm)
+{
+	uint16_t vec_id = *vec_idx;
+
+	// 这里为什么有个循环处理？要知道map_one_desc()这个函数只处理一个desc，
+	// 也就是只处理当前的desc，不用管desc.next。答案是：因为desc-&gt;addr有可能
+	// 是跨page的，所以需要多次地址转换，特别是开启tso的情况下。
+	while (desc_len) {
+		uint64_t desc_addr;
+		uint64_t desc_chunck_len = desc_len;
+
+		if (unlikely(vec_id &gt;= BUF_VECTOR_MAX))
+			return -1;
+
+		// 地址转换：GPA =&gt; VVA
+		desc_addr = vhost_iova_to_vva(dev, vq,
+				desc_iova,
+				&amp;desc_chunck_len,
+				perm);
+		if (unlikely(!desc_addr))
+			return -1;
+
+		rte_prefetch0((void *)(uintptr_t)desc_addr);
+
+		// 这个函数将desc转换后，存储在buf_vec中，然后再上层函数统一处理
+		buf_vec[vec_id].buf_iova = desc_iova;
+		buf_vec[vec_id].buf_addr = desc_addr;
+		buf_vec[vec_id].buf_len  = desc_chunck_len;
+
+		desc_len -= desc_chunck_len;
+		desc_iova += desc_chunck_len;
+		vec_id++;
+	}
+	*vec_idx = vec_id;
+
+	return 0;
+}
+</code></pre>
+<p>接着看fill_vec_buf_split()函数：</p>
+<pre><code>static __rte_always_inline int
+fill_vec_buf_split(struct virtio_net *dev, struct vhost_virtqueue *vq,
+			 uint32_t avail_idx, uint16_t *vec_idx,
+			 struct buf_vector *buf_vec, uint16_t *desc_chain_head,
+			 uint32_t *desc_chain_len, uint8_t perm)
+{
+	// 获取desc ring中的下标
+	uint16_t idx = vq-&gt;avail-&gt;ring[avail_idx &amp; (vq-&gt;size - 1)];
+	uint16_t vec_id = *vec_idx;
+	uint32_t len    = 0;
+	uint64_t dlen;
+	uint32_t nr_descs = vq-&gt;size;
+	uint32_t cnt    = 0;
+	struct vring_desc *descs = vq-&gt;desc;
+	struct vring_desc *idesc = NULL;
+
+	// 上文提到过，desc ring中下标是不会超过数组长度的，因为其值来自desc.next
+	if (unlikely(idx &gt;= vq-&gt;size))
+		return -1;
+
+	*desc_chain_head = idx;
+
+	if (vq-&gt;desc[idx].flags &amp; VRING_DESC_F_INDIRECT) {
+		......
+	}
+
+	while (1) {
+		......
+		len += descs[idx].len;
+
+		// 为一个desc转换地址
+		if (unlikely(map_one_desc(dev, vq, buf_vec, &amp;vec_id,
+						descs[idx].addr, descs[idx].len,
+						perm))) {
+			free_ind_table(idesc);
+			return -1;
+		}
+
+		// 判断desc list是否截止
+		if ((descs[idx].flags &amp; VRING_DESC_F_NEXT) == 0)
+			break;
+
+		// 处理该报文的下一个desc
+		idx = descs[idx].next;
+	}
+
+	// 报文总长度
+	*desc_chain_len = len;
+	// vsec总个数
+	// 注意：desc是可以跨page的，但是用于接收的desc_vec是不跨page的
+	// 所以desc_vec中的元素的个数有可能回避desc的个数多。
+	*vec_idx = vec_id;
+
+	if (unlikely(!!idesc))
+		free_ind_table(idesc);
+
+	return 0;
+}
+</code></pre>
+<p>copy_desc_to_mbuf()这个函数不想太详细的看了，改函数主要就是将buf_vec中的数据拷贝到mbuf中。并且根据virtio_hdr初始化mbuf相关参数（例如offload相关参数等）。</p>
+<h2 id="6-vhost向guest发包">6. Vhost向Guest发包</h2>
+<h2 id="7-virtio的前后端通知机制">7. Virtio的前后端通知机制</h2>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://rexrock.github.io/post/dpdk1/" class="post-title gt-a-link">
+                    使用testpmd验证CX5网卡rte_flow功能
+                </a>
+            </div>
+        
+
+        
+
+        
+            
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+<script>
+    // md5.min.js
+    !function(n){
+        "use strict";
+        function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}
+        function f(n,t,r,e,o,u){return d((c=d(d(t,n),d(e,u)))<<(f=o)|c>>>32-f,r);var c,f}
+        function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}
+        function v(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}
+        function g(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}
+        function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}
+        function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)f=l(e=f,o=i,u=a,c=h,n[r],7,-680876936),h=l(h,f,i,a,n[r+1],12,-389564586),a=l(a,h,f,i,n[r+2],17,606105819),i=l(i,a,h,f,n[r+3],22,-1044525330),f=l(f,i,a,h,n[r+4],7,-176418897),h=l(h,f,i,a,n[r+5],12,1200080426),a=l(a,h,f,i,n[r+6],17,-1473231341),i=l(i,a,h,f,n[r+7],22,-45705983),f=l(f,i,a,h,n[r+8],7,1770035416),h=l(h,f,i,a,n[r+9],12,-1958414417),a=l(a,h,f,i,n[r+10],17,-42063),i=l(i,a,h,f,n[r+11],22,-1990404162),f=l(f,i,a,h,n[r+12],7,1804603682),h=l(h,f,i,a,n[r+13],12,-40341101),a=l(a,h,f,i,n[r+14],17,-1502002290),f=v(f,i=l(i,a,h,f,n[r+15],22,1236535329),a,h,n[r+1],5,-165796510),h=v(h,f,i,a,n[r+6],9,-1069501632),a=v(a,h,f,i,n[r+11],14,643717713),i=v(i,a,h,f,n[r],20,-373897302),f=v(f,i,a,h,n[r+5],5,-701558691),h=v(h,f,i,a,n[r+10],9,38016083),a=v(a,h,f,i,n[r+15],14,-660478335),i=v(i,a,h,f,n[r+4],20,-405537848),f=v(f,i,a,h,n[r+9],5,568446438),h=v(h,f,i,a,n[r+14],9,-1019803690),a=v(a,h,f,i,n[r+3],14,-187363961),i=v(i,a,h,f,n[r+8],20,1163531501),f=v(f,i,a,h,n[r+13],5,-1444681467),h=v(h,f,i,a,n[r+2],9,-51403784),a=v(a,h,f,i,n[r+7],14,1735328473),f=g(f,i=v(i,a,h,f,n[r+12],20,-1926607734),a,h,n[r+5],4,-378558),h=g(h,f,i,a,n[r+8],11,-2022574463),a=g(a,h,f,i,n[r+11],16,1839030562),i=g(i,a,h,f,n[r+14],23,-35309556),f=g(f,i,a,h,n[r+1],4,-1530992060),h=g(h,f,i,a,n[r+4],11,1272893353),a=g(a,h,f,i,n[r+7],16,-155497632),i=g(i,a,h,f,n[r+10],23,-1094730640),f=g(f,i,a,h,n[r+13],4,681279174),h=g(h,f,i,a,n[r],11,-358537222),a=g(a,h,f,i,n[r+3],16,-722521979),i=g(i,a,h,f,n[r+6],23,76029189),f=g(f,i,a,h,n[r+9],4,-640364487),h=g(h,f,i,a,n[r+12],11,-421815835),a=g(a,h,f,i,n[r+15],16,530742520),f=m(f,i=g(i,a,h,f,n[r+2],23,-995338651),a,h,n[r],6,-198630844),h=m(h,f,i,a,n[r+7],10,1126891415),a=m(a,h,f,i,n[r+14],15,-1416354905),i=m(i,a,h,f,n[r+5],21,-57434055),f=m(f,i,a,h,n[r+12],6,1700485571),h=m(h,f,i,a,n[r+3],10,-1894986606),a=m(a,h,f,i,n[r+10],15,-1051523),i=m(i,a,h,f,n[r+1],21,-2054922799),f=m(f,i,a,h,n[r+8],6,1873313359),h=m(h,f,i,a,n[r+15],10,-30611744),a=m(a,h,f,i,n[r+6],15,-1560198380),i=m(i,a,h,f,n[r+13],21,1309151649),f=m(f,i,a,h,n[r+4],6,-145523070),h=m(h,f,i,a,n[r+11],10,-1120210379),a=m(a,h,f,i,n[r+2],15,718787259),i=m(i,a,h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}
+        function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}
+        function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}
+        function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}
+        function r(n){return unescape(encodeURIComponent(n))}
+        function o(n){return a(i(h(t=r(n)),8*t.length));var t}
+        function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}
+        function t(n,t,r){return t?r?u(t,n):e(u(t,n)):r?o(n):e(o(n))}
+        "function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t;
+    }(this);
+</script>
+
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '62131da8c01581d51a4c',
+    clientSecret: '308d3822d73a9da5ac83f3e7fe8ebe10be46b4f1',
+    proxy: 'https://fathomless-ridge-18984.herokuapp.com/https://github.com/login/oauth/access_token',
+    repo: 'rexrock.github.io',
+    owner: 'rexrock',
+    admin: ['rexrock'],
+    id: md5(location.pathname),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false       // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+            
+
+            
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">每天进步一点点</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://rexrock.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+  hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>

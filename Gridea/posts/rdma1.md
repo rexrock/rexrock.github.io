@@ -15,7 +15,7 @@ isTop: false
 - Socket既管理连接又管理传输；
 - RDMACM只管理连接，数据传输下面再介绍；
 
-![image-20240112103524032](./rdma1.assets/image-20240112103524032.png)
+![rdma1_1](../post-images/rdma1_1.png)
 
 ## 2. 数据传输
 
@@ -48,17 +48,17 @@ isTop: false
 - 创建QP并指定其CQ、PD、ibver_ctx： rdma_create_qp()
 - 注册将要参与数据传输的内存：ibv_reg_mr（）,返回这块内存的key，对端有了key才能访问这块内存；
 
-![image-20240112104224555](./rdma1.assets/image-20240112104224555.png)
+![rdma1_2](../post-images/rdma1_2.png)
 
 ### 2.2 创建QP的契机
 
 图中标★处：
 
-![image-20240112104401115](./rdma1.assets/image-20240112104401115.png)
+![rdma1_3](../post-images/rdma1_3.png)
 
 ### 2.3 传输之send/receive
 
-![image-20240112104551551](./rdma1.assets/image-20240112104551551.png)
+![rdma1_4](../post-images/rdma1_4.png)
 
 ### 2.5 传输之write/read
 
@@ -72,13 +72,13 @@ isTop: false
 
 - 随便：可以通过上面讲的send/receive，或者干脆通过TCP/IP传输这种数据；
 
-![image-20240112104751376](./rdma1.assets/image-20240112104751376.png)
+![rdma1_5](../post-images/rdma1_5.png)
 
 ### 2.6 传输之write_with_immediate
 
 > 前提，被read/write的一端(称接收端)，需要把自己要被read/write的内存，发给发起read/write的一端（称发送端）
 
-![image-20240112104856223](./rdma1.assets/image-20240112104856223.png)
+![rdma1_6](../post-images/rdma1_6.png)
 
 ## 3. 总结
 

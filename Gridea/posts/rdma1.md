@@ -1,12 +1,12 @@
-```
+---
 title: 'RDMA编程模型'
-date: 2020-3-27 12:32:00
+date: 2020-3-27 12:31:00
 tags: [RDMA]
 published: true
 hideInList: false
 feature: 
 isTop: false
-```
+---
 
 ## 1. 连接管理
 
@@ -15,7 +15,7 @@ isTop: false
 - Socket既管理连接又管理传输；
 - RDMACM只管理连接，数据传输下面再介绍；
 
-![rdma1_1](../post-images/rdma1_1.png)
+![rdma1_1](https://rexrock.github.io/post-images/rdma1_1.png)
 
 ## 2. 数据传输
 
@@ -48,17 +48,17 @@ isTop: false
 - 创建QP并指定其CQ、PD、ibver_ctx： rdma_create_qp()
 - 注册将要参与数据传输的内存：ibv_reg_mr（）,返回这块内存的key，对端有了key才能访问这块内存；
 
-![rdma1_2](../post-images/rdma1_2.png)
+![rdma1_2](https://rexrock.github.io/post-images/rdma1_2.png)
 
 ### 2.2 创建QP的契机
 
 图中标★处：
 
-![rdma1_3](../post-images/rdma1_3.png)
+![rdma1_3](https://rexrock.github.io/post-images/rdma1_3.png)
 
 ### 2.3 传输之send/receive
 
-![rdma1_4](../post-images/rdma1_4.png)
+![rdma1_4](https://rexrock.github.io/post-images/rdma1_4.png)
 
 ### 2.5 传输之write/read
 
@@ -72,13 +72,13 @@ isTop: false
 
 - 随便：可以通过上面讲的send/receive，或者干脆通过TCP/IP传输这种数据；
 
-![rdma1_5](../post-images/rdma1_5.png)
+![rdma1_5](https://rexrock.github.io/post-images/rdma1_5.png)
 
 ### 2.6 传输之write_with_immediate
 
 > 前提，被read/write的一端(称接收端)，需要把自己要被read/write的内存，发给发起read/write的一端（称发送端）
 
-![rdma1_6](../post-images/rdma1_6.png)
+![rdma1_6](https://rexrock.github.io/post-images/rdma1_6.png)
 
 ## 3. 总结
 
